@@ -2,7 +2,8 @@ blueprint:
   name: Simple Weekly Scheduler
   description: Simple weekly scheduler to start/turn on and stop/turn off devices (e.g. lamps or switches).
   domain: automation
-  
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/simple_weekly_scheduler/simple_weekly_scheduler.yaml
+
   input:
     # In this segment the user will input the default values to start/turn on the automation. 
     default_run_on:
@@ -139,44 +140,64 @@ blueprint:
 mode: single
 max_exceeded: silent
 
+# Variables ussed in the automation
+variable:
+  # Convert inputs to variable:
+  default_time_on: !input default_time_on
+  default_sun_on_offset: !input default_sun_on_offset
+  
+  default_time_off: !input default_time_off
+  default_sun_off_offset: !input default_sun_off_offset
+
+  monday_enabled: !input monday_enabled
+  tuesday_enabled: !input tuesday_enabled
+  wednesday_enabled: !input wednesday_enabled
+  thursday_enabled: !input thursday_enabled
+  friday_enabled: !input friday_enabled
+  saturday_enabled: !input saturday_enabled
+  sunday_enabled: !input sunday_enabled
+
+  default_time_or_sun_on: !input default_time_or_sun_on
+  default_time_or_sun_off: !input default_time_or_sun_off
+
 # Triggers - This automation is triggered for all input options, and the conditions are used to define if the automation will run at that specific time
 trigger:
 
   # Start / Turn-on triggers
   - platform: time
-    at: !input default_time_on
+    at: default_time_on
     id: trigger_default_time_on
     
   - platform: sun
     event: sunrise
-    offset: >
-      {% set m = !input default_sun_on_offset %}
+    offset: >-
+      {% set m = default_sun_on_offset %}
       {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }}
     id: trigger_default_sunrise_on
     
   - platform: sun
     event: sunset
-    offset: >
-      {% set m = !input default_sun_on_offset %}
+    offset: >-
+      {% set m = default_sun_on_offset %}
       {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }} 
     id: trigger_default_sunset_on
  
   # Stop / Turn-off triggers
   - platform: time
-    at: !input default_time_off
+    at: default_time_off
     id: trigger_default_time_off
     
   - platform: sun
     event: sunrise
-    offset: >
-      {% set m = !input default_sun_off_offset %}
+    offset: >-
+      {% set m = default_sun_off_offset %}
       {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }}
     id: trigger_default_sunrise_off
     
   - platform: sun
     event: sunset
-    offset: >
-      {% set m = !input default_sun_off_offset %}
+    offset: >-
+      {% set m = default_sun_off_offset %}
       {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }} 
     id: trigger_default_sunset_off
 
@@ -185,28 +206,28 @@ condition:
 
   # Check if the automation is supposed to be executed during that specific weekday
   - condition: template
-    value_template: >
+    value_template: >-
         {% set current_day = now().weekday() | int %}
         {{ 
-          (current_day == 0 and !input monday_enabled) or 
-          (current_day == 1 and !input tuesday_enabled) or 
-          (current_day == 2 and !input wednesday_enabled) or
-          (current_day == 3 and !input thursday_enabled) or 
-          (current_day == 4 and !input friday_enabled) or
-          (current_day == 5 and !input saturday_enabled) or
-          (current_day == 6 and !input sunday_enabled)
+          (current_day == 0 and monday_enabled) or 
+          (current_day == 1 and tuesday_enabled) or 
+          (current_day == 2 and wednesday_enabled) or
+          (current_day == 3 and thursday_enabled) or 
+          (current_day == 4 and friday_enabled) or
+          (current_day == 5 and saturday_enabled) or
+          (current_day == 6 and sunday_enabled)
         }}
 
   # Check if the specific time or sun trigger is supposed to be exectuted
   - condition: template
-    value_template: >
+    value_template: >-
         {{ 
-          (!input default_run_on and ((!input default_time_or_sun_on == 'Time' and trigger.id == 'trigger_default_time_on') or
-          (!input default_time_or_sun_on == 'Sunrise' and trigger.id == 'trigger_default_sunrise_on') or
-          (!input default_time_or_sun_on == 'Sunset' and trigger.id == 'trigger_default_sunset_on'))) or 
-          (!input default_run_off and ((!input default_time_or_sun_off == 'Time' and trigger.id == 'trigger_default_time_off') or
-          (!input default_time_or_sun_off == 'Sunrise' and trigger.id == 'trigger_default_sunrise_off') or
-          (!input default_time_or_sun_off == 'Sunset' and trigger.id == 'trigger_default_sunset_off')))
+          (!input default_run_on and ((default_time_or_sun_on == 'Time' and trigger.id == 'trigger_default_time_on') or
+          (default_time_or_sun_on == 'Sunrise' and trigger.id == 'trigger_default_sunrise_on') or
+          (default_time_or_sun_on == 'Sunset' and trigger.id == 'trigger_default_sunset_on'))) or 
+          (!input default_run_off and ((default_time_or_sun_off == 'Time' and trigger.id == 'trigger_default_time_off') or
+          (default_time_or_sun_off == 'Sunrise' and trigger.id == 'trigger_default_sunrise_off') or
+          (default_time_or_sun_off == 'Sunset' and trigger.id == 'trigger_default_sunset_off')))
         }}
 
 # Actions
