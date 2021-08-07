@@ -232,24 +232,26 @@ condition:
 
 # Actions
 action:
-  - choose:
-    - conditions:
-      - condition: or
-        conditions:
-          - condition: trigger
-            id: 'trigger_default_time_on'
-          - condition: trigger
-            id: 'trigger_default_sunrise_on'
-          - condition: trigger
-            id: 'trigger_default_sunset_on'
-        sequence: !input scheduled_action_on
-      - condition: or
-        conditions:
-          - condition: trigger
-            id: 'trigger_default_time_off'
-          - condition: trigger
-            id: 'trigger_default_sunrise_off'
-          - condition: trigger
-            id: 'trigger_default_sunset_off'
-        sequence: !input scheduled_action_off
-    default: []
+  - choose: [] 
+    default: !input scheduled_action_on
+  # - choose:
+  #   - conditions:
+  #     - condition: or
+  #       conditions:
+  #         - condition: trigger
+  #           id: 'trigger_default_time_on'
+  #         - condition: trigger
+  #           id: 'trigger_default_sunrise_on'
+  #         - condition: trigger
+  #           id: 'trigger_default_sunset_on'
+  #       sequence: !input scheduled_action_on
+  #     - condition: or
+  #       conditions:
+  #         - condition: trigger
+  #           id: 'trigger_default_time_off'
+  #         - condition: trigger
+  #           id: 'trigger_default_sunrise_off'
+  #         - condition: trigger
+  #           id: 'trigger_default_sunset_off'
+  #       sequence: !input scheduled_action_off
+  #   default: []
