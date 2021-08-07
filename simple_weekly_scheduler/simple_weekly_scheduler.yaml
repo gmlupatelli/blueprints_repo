@@ -160,6 +160,9 @@ variable:
   default_time_or_sun_on: !input default_time_or_sun_on
   default_time_or_sun_off: !input default_time_or_sun_off
 
+  default_run_on: !input default_run_on
+  default_run_off: !input default_run_off
+
 # Triggers - This automation is triggered for all input options, and the conditions are used to define if the automation will run at that specific time
 trigger:
 
@@ -222,10 +225,10 @@ condition:
   - condition: template
     value_template: >-
         {{ 
-          (!input default_run_on and ((default_time_or_sun_on == 'Time' and trigger.id == 'trigger_default_time_on') or
+          (default_run_on and ((default_time_or_sun_on == 'Time' and trigger.id == 'trigger_default_time_on') or
           (default_time_or_sun_on == 'Sunrise' and trigger.id == 'trigger_default_sunrise_on') or
           (default_time_or_sun_on == 'Sunset' and trigger.id == 'trigger_default_sunset_on'))) or 
-          (!input default_run_off and ((default_time_or_sun_off == 'Time' and trigger.id == 'trigger_default_time_off') or
+          (default_run_off and ((default_time_or_sun_off == 'Time' and trigger.id == 'trigger_default_time_off') or
           (default_time_or_sun_off == 'Sunrise' and trigger.id == 'trigger_default_sunrise_off') or
           (default_time_or_sun_off == 'Sunset' and trigger.id == 'trigger_default_sunset_off')))
         }}
