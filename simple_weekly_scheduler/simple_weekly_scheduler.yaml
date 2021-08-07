@@ -168,67 +168,67 @@ trigger:
     at: default_time_on
     id: trigger_default_time_on
     
-  - platform: sun
-    event: sunrise
-    offset: >-
-      {% set m = default_sun_on_offset %}
-      {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }}
-    id: trigger_default_sunrise_on
+  # - platform: sun
+  #   event: sunrise
+  #   offset: >-
+  #     {% set m = default_sun_on_offset %}
+  #     {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }}
+  #   id: trigger_default_sunrise_on
     
-  - platform: sun
-    event: sunset
-    offset: >-
-      {% set m = default_sun_on_offset %}
-      {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }} 
-    id: trigger_default_sunset_on
+  # - platform: sun
+  #   event: sunset
+  #   offset: >-
+  #     {% set m = default_sun_on_offset %}
+  #     {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }} 
+  #   id: trigger_default_sunset_on
  
-  # Stop / Turn-off triggers
-  - platform: time
-    at: default_time_off
-    id: trigger_default_time_off
+  # # Stop / Turn-off triggers
+  # - platform: time
+  #   at: default_time_off
+  #   id: trigger_default_time_off
     
-  - platform: sun
-    event: sunrise
-    offset: >-
-      {% set m = default_sun_off_offset %}
-      {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }}
-    id: trigger_default_sunrise_off
+  # - platform: sun
+  #   event: sunrise
+  #   offset: >-
+  #     {% set m = default_sun_off_offset %}
+  #     {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }}
+  #   id: trigger_default_sunrise_off
     
-  - platform: sun
-    event: sunset
-    offset: >-
-      {% set m = default_sun_off_offset %}
-      {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }} 
-    id: trigger_default_sunset_off
+  # - platform: sun
+  #   event: sunset
+  #   offset: >-
+  #     {% set m = default_sun_off_offset %}
+  #     {{ '%02i:%02i:%02i' %(m/60,m%60,(60*m)%60) }} 
+  #   id: trigger_default_sunset_off
 
-# Conditions used to determine if the automation should run for the specific trigger event
-condition:
+# # Conditions used to determine if the automation should run for the specific trigger event
+# condition:
 
-  # Check if the automation is supposed to be executed during that specific weekday
-  - condition: template
-    value_template: >-
-        {% set current_day = now().weekday() | int %}
-        {{ 
-          (current_day == 0 and monday_enabled) or 
-          (current_day == 1 and tuesday_enabled) or 
-          (current_day == 2 and wednesday_enabled) or
-          (current_day == 3 and thursday_enabled) or 
-          (current_day == 4 and friday_enabled) or
-          (current_day == 5 and saturday_enabled) or
-          (current_day == 6 and sunday_enabled)
-        }}
+#   # Check if the automation is supposed to be executed during that specific weekday
+#   - condition: template
+#     value_template: >-
+#         {% set current_day = now().weekday() | int %}
+#         {{ 
+#           (current_day == 0 and monday_enabled) or 
+#           (current_day == 1 and tuesday_enabled) or 
+#           (current_day == 2 and wednesday_enabled) or
+#           (current_day == 3 and thursday_enabled) or 
+#           (current_day == 4 and friday_enabled) or
+#           (current_day == 5 and saturday_enabled) or
+#           (current_day == 6 and sunday_enabled)
+#         }}
 
-  # Check if the specific time or sun trigger is supposed to be exectuted
-  - condition: template
-    value_template: >-
-        {{ 
-          (!input default_run_on and ((default_time_or_sun_on == 'Time' and trigger.id == 'trigger_default_time_on') or
-          (default_time_or_sun_on == 'Sunrise' and trigger.id == 'trigger_default_sunrise_on') or
-          (default_time_or_sun_on == 'Sunset' and trigger.id == 'trigger_default_sunset_on'))) or 
-          (!input default_run_off and ((default_time_or_sun_off == 'Time' and trigger.id == 'trigger_default_time_off') or
-          (default_time_or_sun_off == 'Sunrise' and trigger.id == 'trigger_default_sunrise_off') or
-          (default_time_or_sun_off == 'Sunset' and trigger.id == 'trigger_default_sunset_off')))
-        }}
+#   # Check if the specific time or sun trigger is supposed to be exectuted
+#   - condition: template
+#     value_template: >-
+#         {{ 
+#           (!input default_run_on and ((default_time_or_sun_on == 'Time' and trigger.id == 'trigger_default_time_on') or
+#           (default_time_or_sun_on == 'Sunrise' and trigger.id == 'trigger_default_sunrise_on') or
+#           (default_time_or_sun_on == 'Sunset' and trigger.id == 'trigger_default_sunset_on'))) or 
+#           (!input default_run_off and ((default_time_or_sun_off == 'Time' and trigger.id == 'trigger_default_time_off') or
+#           (default_time_or_sun_off == 'Sunrise' and trigger.id == 'trigger_default_sunrise_off') or
+#           (default_time_or_sun_off == 'Sunset' and trigger.id == 'trigger_default_sunset_off')))
+#         }}
 
 # Actions
 action:
