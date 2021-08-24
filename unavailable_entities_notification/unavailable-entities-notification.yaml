@@ -84,7 +84,7 @@ variables:
   sensors: >-
     {% set result = namespace(entities=[]) %}
     {% for state in states %}
-      {% if state.state == 'unavailable' % and not state.entity_id in exclude.entity_id}
+      {% if state.state == 'unavailable' and not state.entity_id in exclude.entity_id %}
         {% set result.entities = result.entities + [state.name] %}
       {% endif %}
     {% endfor %}
