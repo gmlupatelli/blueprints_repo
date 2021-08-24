@@ -79,6 +79,8 @@ variables:
   saturday_enabled: !input 'saturday_enabled'
   sunday_enabled: !input 'sunday_enabled'
 
+  current_day: '{{ now().weekday() | int }}'
+
   exclude: !input 'exclude'
 
   sensors: >-
@@ -100,7 +102,6 @@ condition:
 # Check if the automation is supposed to be executed during that specific weekday
   - condition: template
     value_template: >-
-        {% set current_day = now().weekday() %}
         {{ 
           (current_day == 0 and monday_enabled) or 
           (current_day == 1 and tuesday_enabled) or 
