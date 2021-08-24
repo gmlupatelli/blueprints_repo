@@ -79,8 +79,6 @@ variables:
   saturday_enabled: !input saturday_enabled
   sunday_enabled: !input sunday_enabled
 
-  threshold: !input 'threshold'
-
   exclude: !input 'exclude'
 
   sensors: >-
