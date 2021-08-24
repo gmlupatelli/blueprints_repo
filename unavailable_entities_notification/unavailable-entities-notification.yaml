@@ -88,6 +88,7 @@ variables:
     {% endfor %}
     {{result.entities|join(', ')}}
 
+
 trigger:
 - platform: time
   at: !input 'time'
@@ -117,4 +118,6 @@ condition:
 action:
 - choose: []
   default: !input 'actions'
+
+
 mode: single
