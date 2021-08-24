@@ -65,7 +65,7 @@ blueprint:
       description: Notifications or similar to be run. {{entities}} is replaced by the unavailable entities names.
       selector:
         action: {}
-  source_url: xxxxxxxxxxxxxxx
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable-entities-notification.yaml
 
 
 variables:
