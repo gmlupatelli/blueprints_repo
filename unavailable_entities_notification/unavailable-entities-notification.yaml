@@ -91,33 +91,34 @@ variables:
 
 
 trigger:
-- platform: time
-  at: !input 'time'
+  - platform: time
+    at: !input 'time'
 
 
 condition:
 # Check if the automation is supposed to be executed during that specific weekday
-- condition: template
-  value_template: >-
-      {% set current_day = now().weekday() %}
-      {{ 
-        (current_day == 0 and monday_enabled) or 
-        (current_day == 1 and tuesday_enabled) or 
-        (current_day == 2 and wednesday_enabled) or
-        (current_day == 3 and thursday_enabled) or 
-        (current_day == 4 and friday_enabled) or
-        (current_day == 5 and saturday_enabled) or
-        (current_day == 6 and sunday_enabled)
-      }}
+  - condition: template
+    value_template: >-
+        {% set current_day = now().weekday() %}
+        {{ 
+          (current_day == 0 and monday_enabled) or 
+          (current_day == 1 and tuesday_enabled) or 
+          (current_day == 2 and wednesday_enabled) or
+          (current_day == 3 and thursday_enabled) or 
+          (current_day == 4 and friday_enabled) or
+          (current_day == 5 and saturday_enabled) or
+          (current_day == 6 and sunday_enabled)
+        }}
 
-# Check if the entities list is not empty
-- condition: template
-  value_template: >-
-      {{ entities != ''''}}
+  # Check if the entities list is not empty
+  - condition: template
+    value_template: >-
+        {{ entities != ''''}}
 
 
 action:
-- choose: []
-  default: !input 'actions'
+  - choose: []
+    default: !input 'actions'
+
 
 mode: single
