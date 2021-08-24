@@ -71,13 +71,13 @@ blueprint:
 
 
 variables:
-  monday_enabled: !input monday_enabled
-  tuesday_enabled: !input tuesday_enabled
-  wednesday_enabled: !input wednesday_enabled
-  thursday_enabled: !input thursday_enabled
-  friday_enabled: !input friday_enabled
-  saturday_enabled: !input saturday_enabled
-  sunday_enabled: !input sunday_enabled
+  monday_enabled: !input 'monday_enabled'
+  tuesday_enabled: !input 'tuesday_enabled'
+  wednesday_enabled: !input 'wednesday_enabled'
+  thursday_enabled: !input 'thursday_enabled'
+  friday_enabled: !input 'friday_enabled'
+  saturday_enabled: !input 'saturday_enabled'
+  sunday_enabled: !input 'sunday_enabled'
 
   exclude: !input 'exclude'
 
