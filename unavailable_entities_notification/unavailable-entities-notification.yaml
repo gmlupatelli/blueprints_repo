@@ -2,6 +2,8 @@ blueprint:
   name: Unavailable entity detection & notification
   description:  Regularly test all entities' status to check for unavailability.
   domain: automation
+
+
   input:
     time:
       name: Time to test on
@@ -13,50 +15,49 @@ blueprint:
     monday_enabled:
       name: 'Monday'
       description: 'Run test on Monday'
-      default: true
+      default: True
       selector:
         boolean:
     tuesday_enabled:
       name: Tuesday
       description: 'Run test on Tuesday'
-      default: true
+      default: True
       selector:
         boolean:
     wednesday_enabled:
       name: Wednesday
       description: 'Run test on Wednesday'
-      default: true
+      default: True
       selector:
         boolean:
     thursday_enabled:
       name: Thursday
       description: 'Run test on Thursday'
-      default: true
+      default: True
       selector:
         boolean:
     friday_enabled:
       name: Friday
       description: 'Run test on Friday'
-      default: true
+      default: True
       selector:
         boolean:
     saturday_enabled:
       name: Saturday
       description: 'Run test on Saturday'
-      default: true
+      default: True
       selector:
         boolean:
     sunday_enabled:
       name: Sunday
       description: 'Run test on Sunday'
-      default: true
+      default: True
       selector:
         boolean:
 
     exclude:
       name: Excluded Entities
       description: Entities (e.g. smartphone) to exclude from detection.
-      default: {entity_id: []}
       selector:
         target:
         
@@ -95,29 +96,28 @@ trigger:
 
 
 condition:
-  # Check if the automation is supposed to be executed during that specific weekday
-  - condition: template
-    value_template: >-
-        {% set current_day = now().weekday() %}
-        {{ 
-          (current_day == 0 and monday_enabled) or 
-          (current_day == 1 and tuesday_enabled) or 
-          (current_day == 2 and wednesday_enabled) or
-          (current_day == 3 and thursday_enabled) or 
-          (current_day == 4 and friday_enabled) or
-          (current_day == 5 and saturday_enabled) or
-          (current_day == 6 and sunday_enabled)
-        }}
+# Check if the automation is supposed to be executed during that specific weekday
+- condition: template
+  value_template: >-
+      {% set current_day = now().weekday() %}
+      {{ 
+        (current_day == 0 and monday_enabled) or 
+        (current_day == 1 and tuesday_enabled) or 
+        (current_day == 2 and wednesday_enabled) or
+        (current_day == 3 and thursday_enabled) or 
+        (current_day == 4 and friday_enabled) or
+        (current_day == 5 and saturday_enabled) or
+        (current_day == 6 and sunday_enabled)
+      }}
 
-  # Check if the entities list is not empty
-  - condition: template
-    value_template: >-
-        {{ entities != ''''}}
+# Check if the entities list is not empty
+- condition: template
+  value_template: >-
+      {{ entities != ''''}}
 
 
 action:
 - choose: []
   default: !input 'actions'
-
 
 mode: single
