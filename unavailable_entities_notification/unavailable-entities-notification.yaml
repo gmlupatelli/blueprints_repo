@@ -1,0 +1,124 @@
+blueprint:
+  name: Unavailable entity detection & notification
+  description:  Regularly test all entities' status to check for unavailability.
+  domain: automation
+  input:
+    time:
+      name: Time to test on
+      description: Test is run at configured time
+      default: '10:00:00'
+      selector:
+        time: {}
+    # In this segment the user will selected the week days that te automation will be exectuted.
+    monday_enabled:
+      name: 'Monday'
+      description: 'Run test on Monday'
+      default: true
+      selector:
+        boolean:
+    tuesday_enabled:
+      name: Tuesday
+      description: 'Run test on Tuesday'
+      default: true
+      selector:
+        boolean:
+    wednesday_enabled:
+      name: Wednesday
+      description: 'Run test on Wednesday'
+      default: true
+      selector:
+        boolean:
+    thursday_enabled:
+      name: Thursday
+      description: 'Run test on Thursday'
+      default: true
+      selector:
+        boolean:
+    friday_enabled:
+      name: Friday
+      description: 'Run test on Friday'
+      default: true
+      selector:
+        boolean:
+    saturday_enabled:
+      name: Saturday
+      description: 'Run test on Saturday'
+      default: true
+      selector:
+        boolean:
+    sunday_enabled:
+      name: Sunday
+      description: 'Run test on Sunday'
+      default: true
+      selector:
+        boolean:
+
+    exclude:
+      name: Excluded Entities
+      description: Entities (e.g. smartphone) to exclude from detection.
+      default: {entity_id: []}
+      selector:
+        target:
+        
+    actions:
+      name: Actions
+      description: Notifications or similar to be run. {{entities}} is replaced by the unavailable entities names.
+      selector:
+        action: {}
+  source_url: xxxxxxxxxxxxxxx
+
+
+variables:
+  day: !input 'day'
+
+  monday_enabled: !input monday_enabled
+  tuesday_enabled: !input tuesday_enabled
+  wednesday_enabled: !input wednesday_enabled
+  thursday_enabled: !input thursday_enabled
+  friday_enabled: !input friday_enabled
+  saturday_enabled: !input saturday_enabled
+  sunday_enabled: !input sunday_enabled
+
+  threshold: !input 'threshold'
+
+  exclude: !input 'exclude'
+
+  sensors: >-
+    {% set result = namespace(entities=[]) %}
+    {% for state in states %}
+      {% if state.state == 'unavailable' % and not state.entity_id in exclude.entity_id}
+        {% set result.entities = result.entities + [state.name] %}
+      {% endif %}
+    {% endfor %}
+    {{result.entities|join(', ')}}
+
+trigger:
+- platform: time
+  at: !input 'time'
+
+
+condition:
+  # Check if the automation is supposed to be executed during that specific weekday
+  - condition: template
+    value_template: >-
+        {% set current_day = now().weekday() | int %}
+        {{ 
+          (current_day == 0 and monday_enabled) or 
+          (current_day == 1 and tuesday_enabled) or 
+          (current_day == 2 and wednesday_enabled) or
+          (current_day == 3 and thursday_enabled) or 
+          (current_day == 4 and friday_enabled) or
+          (current_day == 5 and saturday_enabled) or
+          (current_day == 6 and sunday_enabled)
+        }}
+
+  # Check if the entities list is not empty
+  - condition: template
+    value_template: >-
+        {{ entities != ''''}}
+
+
+action:
+- choose: []
+  default: !input 'actions'
+mode: single
