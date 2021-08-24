@@ -69,8 +69,6 @@ blueprint:
 
 
 variables:
-  day: !input 'day'
-
   monday_enabled: !input monday_enabled
   tuesday_enabled: !input tuesday_enabled
   wednesday_enabled: !input wednesday_enabled
