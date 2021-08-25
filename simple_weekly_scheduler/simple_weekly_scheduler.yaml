@@ -4,6 +4,7 @@ blueprint:
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/simple_weekly_scheduler/simple_weekly_scheduler.yaml
 
+  # Blueprint Inputs
   input:
     # In this segment the user will input the default values to start/turn on the automation. 
     default_run_on:
@@ -139,10 +140,7 @@ blueprint:
       selector:
         boolean:
 
-mode: single
-max_exceeded: silent
-
-# Variables ussed in the automation
+# Variables used in the automation
 variable:
   # Convert inputs to variable:
   default_time_on: !input 'default_time_on'
@@ -255,3 +253,6 @@ action:
             id: 'trigger_default_sunset_off'
         sequence: !input scheduled_action_off
     default: []
+
+mode: single
+max_exceeded: silent

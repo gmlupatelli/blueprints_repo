@@ -3,7 +3,7 @@ blueprint:
   description:  Regularly test all entities' status to check for unavailability.
   domain: automation
 
-
+  # Blueprint Inputs
   input:
     time:
       name: Time to test on
@@ -60,17 +60,18 @@ blueprint:
       description: Entities (e.g. smartphone) to exclude from detection.
       default: {}
       selector:
-        target: {}
+        target:
         
     actions:
       name: Actions
       description: Notifications or similar to be run. {{entities}} is replaced by the unavailable entities names.
       default: {}
       selector:
-        action: {}
-  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable-entities-notification.yaml
+        action:
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable_entities_notification.yaml
 
 
+# Variables used in the automation
 variables:
   monday_enabled: !input 'monday_enabled'
   tuesday_enabled: !input 'tuesday_enabled'
@@ -94,11 +95,13 @@ variables:
     {{result.entities|join(', ')}}
 
 
+# Triggers
 trigger:
   - platform: time
     at: !input 'time'
 
 
+# Conditions used to determine if the automation should run for the specific trigger event
 condition:
 # Check if the automation is supposed to be executed during that specific weekday
   - condition: template
@@ -113,15 +116,18 @@ condition:
           (current_day == 6 and sunday_enabled)
         }}
 
+
   # Check if the entities list is not empty
   - condition: template
     value_template: >-
         {{ entities != ''''}}
 
 
+# Actions
 action:
   - choose: []
     default: !input 'actions'
 
 
 mode: single
+max_exceeded: silent
