@@ -2,7 +2,9 @@ blueprint:
   name: Low battery level detection & notification for all battery sensors
   description: Regularly test all sensors with 'battery' device-class for crossing a certain battery level threshold and if so execute an action.
   domain: automation
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/low_battery_notification/low_battery_notification.yaml
   
+    
   # Blueprint Inputs
   input:
     threshold:
@@ -82,7 +84,6 @@ blueprint:
       selector:
         action:
 
-  source_url: xxxxxxxxxxxxxxxxxxxx
 
 variables:
   monday_enabled: !input 'monday_enabled'

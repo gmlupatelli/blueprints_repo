@@ -2,6 +2,7 @@ blueprint:
   name: Unavailable entity detection & notification
   description:  Regularly test all entities' status to check for unavailability.
   domain: automation
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable_entities_notification.yaml
 
   # Blueprint Inputs
   input:
@@ -68,7 +69,6 @@ blueprint:
       default: {}
       selector:
         action:
-  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable_entities_notification.yaml
 
 
 # Variables used in the automation
