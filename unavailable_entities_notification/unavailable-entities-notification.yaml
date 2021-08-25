@@ -58,13 +58,14 @@ blueprint:
     exclude:
       name: Excluded Entities
       description: Entities (e.g. smartphone) to exclude from detection.
-      default: []
+      default: {}
       selector:
-        target:
+        target: {}
         
     actions:
       name: Actions
       description: Notifications or similar to be run. {{entities}} is replaced by the unavailable entities names.
+      default: {}
       selector:
         action: {}
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable-entities-notification.yaml
