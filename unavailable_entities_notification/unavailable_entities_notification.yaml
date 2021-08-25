@@ -88,8 +88,14 @@ variables:
   entities: >-
     {% set result = namespace(entities=[]) %}
     {% for state in states %}
-      {% if state.state == 'unavailable' and exclude is defined and not state.entity_id in exclude.entity_id %}
-        {% set result.entities = result.entities + [state.name] %}
+      {% if exclude.entity_id is defined %}
+        {% if state.state == 'unavailable' and not state.entity_id in exclude.entity_id %}
+          {% set result.entities = result.entities + [state.name] %}
+        {% endif %}
+      {% else %}
+        {% if state.state == 'unavailable' %}
+          {% set result.entities = result.entities + [state.name] %}
+        {% endif %}
       {% endif %}
     {% endfor %}
     {{result.entities|join(', ')}}
