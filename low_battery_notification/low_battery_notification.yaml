@@ -103,23 +103,35 @@ variables:
   sensors: >-
     {% set result = namespace(sensors=[]) %}
     {% for state in states.sensor | selectattr('attributes.device_class', '==', 'battery') %}
-      {% if 0 <= state.state | int(-1) < threshold | int and not state.entity_id in exclude.entity_id %}
-        {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
+      {% if exclude.entity_id is defined %}
+        {% if 0 <= state.state | int(-1) < threshold | int and not state.entity_id in exclude.entity_id %}
+          {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
+        {% endif %}
+      {% else %}
+        {% if 0 <= state.state | int(-1) < threshold | int %}
+          {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
+        {% endif %}
       {% endif %}
     {% endfor %}
     {% for state in states.binary_sensor | selectattr('attributes.device_class', '==', 'battery') | selectattr('state', '==', 'on') %}
-      {% if not state.entity_id in exclude.entity_id %}
+      {% if exclude.entity_id is defined %}
+        {% if not state.entity_id in exclude.entity_id %}
+          {% set result.sensors = result.sensors + [state.name] %}
+        {% endif %}
+      {% else %}
         {% set result.sensors = result.sensors + [state.name] %}
       {% endif %}
     {% endfor %}
     {{result.sensors|join(', ')}}
 
 
+# Triggers
 trigger:
 - platform: time
     at: !input 'time'
 
 
+# Conditions used to determine if the automation should run for the specific trigger event
 condition:
 # Check if the automation is supposed to be executed during that specific weekday
   - condition: template
@@ -141,6 +153,7 @@ condition:
         {{ sensors != '''' }}
 
 
+# Actions
 action:
 - choose: []
   default: !input 'actions'
