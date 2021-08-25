@@ -127,8 +127,8 @@ variables:
 
 # Triggers
 trigger:
-- platform: time
-  at: !input 'time'
+  - platform: time
+    at: !input 'time'
 
 
 # Conditions used to determine if the automation should run for the specific trigger event
