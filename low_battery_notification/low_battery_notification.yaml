@@ -71,7 +71,7 @@ blueprint:
 
     exclude:
       name: Excluded Sensors
-      description: Battery sensors (e.g. smartphone) to exclude from detection. Only entities are supported, devices must be expanded!
+      description: Battery sensors (e.g. smartphone) to exclude from detection. Only entities are supported, areas and devices must be expanded!
       default: {}
       selector:
         target:
