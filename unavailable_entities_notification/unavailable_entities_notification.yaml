@@ -65,7 +65,7 @@ blueprint:
         
     actions:
       name: Actions
-      description: Notifications or similar to be run. {{entities}} is replaced by the unavailable entities names.
+      description: Notifications or similar to be run. {{entities}} is replaced with the names of unavailable entities.
       selector:
         action:
 
