@@ -66,7 +66,6 @@ blueprint:
     actions:
       name: Actions
       description: Notifications or similar to be run. {{entities}} is replaced by the unavailable entities names.
-      default: {}
       selector:
         action:
 
@@ -131,8 +130,8 @@ condition:
 
 # Actions
 action:
-- choose: []
-  default: !input 'actions'
+  - choose: []
+    default: !input 'actions'
 
 
 mode: single

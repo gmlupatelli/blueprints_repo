@@ -155,8 +155,8 @@ condition:
 
 # Actions
 action:
-- choose: []
-  default: !input 'actions'
+  - choose: []
+    default: !input 'actions'
   
 mode: single
 max_exceeded: silent
