@@ -164,7 +164,7 @@ trigger:
 
   # Start / Turn-on triggers
   - platform: time
-      at: default_time_on
+      at: !input default_time_on
       id: trigger_default_time_on
     
   - platform: sun
@@ -181,7 +181,7 @@ trigger:
  
   # Stop / Turn-off triggers
   - platform: time
-      at: default_time_off
+      at: !input default_time_off
       id: trigger_default_time_off
     
   - platform: sun
