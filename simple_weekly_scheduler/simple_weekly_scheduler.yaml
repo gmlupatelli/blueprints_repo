@@ -143,12 +143,6 @@ blueprint:
 # Variables used in the automation
 variable:
   # Convert inputs to variable:
-  default_time_on: !input 'default_time_on'
-  default_sun_on_offset: !input 'default_sun_on_offset'
-  
-  default_time_off: !input 'default_time_off'
-  default_sun_off_offset: !input 'default_sun_off_offset'
-
   monday_enabled: !input 'monday_enabled'
   tuesday_enabled: !input 'tuesday_enabled'
   wednesday_enabled: !input 'wednesday_enabled'
