@@ -1,0 +1,86 @@
+blueprint:
+  name: ZHA - MOES Wireless Remote Switch (Double Rocker)
+  description: Automate your MOES Wireless Remote Switch (Double Rocker) using ZHA events.
+  domain: automation
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/moes_controler/moes_double_rocker.yaml
+  
+  input:
+    remote_switch:
+      name: Select the MOES Wireless Remote Switch (Double Rocker)
+      description: MOES Wireless Remote Switch (Double Rocker)
+      selector:
+        device:
+          integration: zha
+          manufacturer: _TZ3000_5e235jpa
+          entity:
+            domain: sensor
+            device_class: battery
+    button_single_press_left:
+      name: Single Press Left
+      description: Action to run on single press
+      default: []
+      selector:
+        action:
+    button_double_press_left:
+      name: Double Press Left
+      description: Action to run on double press
+      default: []
+      selector:
+        action:
+    button_long_press_left:
+      name: Long Press Left
+      description: Action to run when button is long pressed (held down)
+      default: []
+      selector:
+        action:
+    button_single_press_right:
+      name: Single Press Right
+      description: Action to run on single press
+      default: []
+      selector:
+        action:
+    button_double_press_right:
+      name: Double Press Right
+      description: Action to run on double press
+      default: []
+      selector:
+        action:
+    button_long_press_right:
+      name: Long Press Right
+      description: Action to run when button is long pressed (held down)
+      default: []
+      selector:
+        action:
+
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input remote_switch
+
+action:
+  - variables:
+      command: "{{ trigger.event.data.command }}"
+
+  - choose:
+      - conditions:
+          - "{{ command == 'remote_button_short_press' and endpoint_id == 1}}"
+        sequence: !input button_single_press_left
+      - conditions:
+          - "{{ command == 'remote_button_double_press' and endpoint_id == 1}}"
+        sequence: !input button_double_press_left
+      - conditions:
+          - "{{ command == 'remote_button_long_press' and endpoint_id == 1}}"
+        sequence: !input button_long_press_left
+      - conditions:
+          - "{{ command == 'remote_button_short_press' and endpoint_id == 2}}"
+        sequence: !input button_single_press_right
+      - conditions:
+          - "{{ command == 'remote_button_double_press' and endpoint_id == 2}}"
+        sequence: !input button_double_press_right
+      - conditions:
+          - "{{ command == 'remote_button_long_press' and endpoint_id == 2}}"
+        sequence: !input button_long_press_right
