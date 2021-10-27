@@ -71,22 +71,22 @@ action:
 
   - choose:
       - conditions:
-          - '{{ command == 'remote_button_short_press' and endpoint_id == 1}}'
+          - '{{ command == ''remote_button_short_press'' and endpoint_id == 1}}'
         sequence: !input button_single_press_left
       - conditions:
-          - '{{ command == 'remote_button_double_press' and endpoint_id == 1}}'
+          - '{{ command == ''remote_button_double_press'' and endpoint_id == 1}}'
         sequence: !input button_double_press_left
       - conditions:
-          - '{{ command == 'remote_button_long_press' and endpoint_id == 1}}'
+          - '{{ command == ''remote_button_long_press'' and endpoint_id == 1}}'
         sequence: !input button_long_press_left
       - conditions:
-          - '{{ command == 'remote_button_short_press' and endpoint_id == 2}}'
+          - '{{ command == ''remote_button_short_press'' and endpoint_id == 2}}'
         sequence: !input button_single_press_right
       - conditions:
-          - '{{ command == 'remote_button_double_press' and endpoint_id == 2}}'
+          - '{{ command == ''remote_button_double_press'' and endpoint_id == 2}}'
         sequence: !input button_double_press_right
       - conditions:
-          - '{{ command == 'remote_button_long_press' and endpoint_id == 2}}'
+          - '{{ command == ''remote_button_long_press'' and endpoint_id == 2}}'
         sequence: !input button_long_press_right
 
         
