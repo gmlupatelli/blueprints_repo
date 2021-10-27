@@ -4,6 +4,7 @@ blueprint:
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/moes_controler/moes_double_rocker.yaml
   
+  # Blueprint Inputs
   input:
     remote_switch:
       name: Select the MOES Wireless Remote Switch (Double Rocker)
@@ -52,36 +53,42 @@ blueprint:
       selector:
         action:
 
-mode: restart
-max_exceeded: silent
 
+# Triggers
 trigger:
   - platform: event
     event_type: zha_event
     event_data:
       device_id: !input remote_switch
 
+
+# Actions
 action:
   - variables:
-      command: "{{ trigger.event.data.command }}"
-      endpoint_id: "{{ trigger.event.data.endpoint_id | int }}"
+      endpoint_id:  '{{ trigger.event.data.endpoint_id | int }}'
+      command: '{{ trigger.event.data.command }}'
+
 
   - choose:
       - conditions:
-          - "{{ command == 'remote_button_short_press' and endpoint_id == 1}}"
+          - '{{ command == 'remote_button_short_press' and endpoint_id == 1}}'
         sequence: !input button_single_press_left
       - conditions:
-          - "{{ command == 'remote_button_double_press' and endpoint_id == 1}}"
+          - '{{ command == 'remote_button_double_press' and endpoint_id == 1}}'
         sequence: !input button_double_press_left
       - conditions:
-          - "{{ command == 'remote_button_long_press' and endpoint_id == 1}}"
+          - '{{ command == 'remote_button_long_press' and endpoint_id == 1}}'
         sequence: !input button_long_press_left
       - conditions:
-          - "{{ command == 'remote_button_short_press' and endpoint_id == 2}}"
+          - '{{ command == 'remote_button_short_press' and endpoint_id == 2}}'
         sequence: !input button_single_press_right
       - conditions:
-          - "{{ command == 'remote_button_double_press' and endpoint_id == 2}}"
+          - '{{ command == 'remote_button_double_press' and endpoint_id == 2}}'
         sequence: !input button_double_press_right
       - conditions:
-          - "{{ command == 'remote_button_long_press' and endpoint_id == 2}}"
+          - '{{ command == 'remote_button_long_press' and endpoint_id == 2}}'
         sequence: !input button_long_press_right
+
+        
+mode: restart
+max_exceeded: silent
