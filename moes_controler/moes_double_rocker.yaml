@@ -28,12 +28,6 @@ blueprint:
       default: []
       selector:
         action:
-    button_long_press_left:
-      name: Long Press Left
-      description: Action to run when button is long pressed (held down)
-      default: []
-      selector:
-        action:
     button_single_press_right:
       name: Single Press Right
       description: Action to run on single press
@@ -43,12 +37,6 @@ blueprint:
     button_double_press_right:
       name: Double Press Right
       description: Action to run on double press
-      default: []
-      selector:
-        action:
-    button_long_press_right:
-      name: Long Press Right
-      description: Action to run when button is long pressed (held down)
       default: []
       selector:
         action:
@@ -77,17 +65,11 @@ action:
           - '{{ command == ''remote_button_double_press'' and endpoint_id == 1}}'
         sequence: !input button_double_press_left
       - conditions:
-          - '{{ command == ''remote_button_long_press'' and endpoint_id == 1}}'
-        sequence: !input button_long_press_left
-      - conditions:
           - '{{ command == ''remote_button_short_press'' and endpoint_id == 2}}'
         sequence: !input button_single_press_right
       - conditions:
           - '{{ command == ''remote_button_double_press'' and endpoint_id == 2}}'
         sequence: !input button_double_press_right
-      - conditions:
-          - '{{ command == ''remote_button_long_press'' and endpoint_id == 2}}'
-        sequence: !input button_long_press_right
 
         
 mode: restart
