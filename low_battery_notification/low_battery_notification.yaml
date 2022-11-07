@@ -150,7 +150,7 @@ condition:
   # Check if the sensors list is not empty
   - condition: template
     value_template: >-
-        {{ sensors != '''' }}
+        {{ sensors != "⤵ \n-"}}
 
 
 # Actions
