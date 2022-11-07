@@ -125,7 +125,7 @@ condition:
   # Check if the entities list is not empty
   - condition: template
     value_template: >-
-        {{ entities != ''''}}
+        {{ entities != "⤵ \n-"}}
 
 
 # Actions
