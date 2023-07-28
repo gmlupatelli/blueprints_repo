@@ -1,6 +1,6 @@
 blueprint:
   name: Unavailable entity detection & notification
-  description:  Regularly test all entities' status to check for unavailability.
+  description: Regularly test all entities' status to check for unavailability.
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable_entities_notification.yaml
 
@@ -58,17 +58,16 @@ blueprint:
 
     exclude:
       name: Excluded Entities
-      description: Entities (e.g. smartphone) to exclude from detection. Only entities are supported, areas and devices must be expanded!
+      description: Entities (e.g. smartphone) to exclude from detection. Only entities and devices are supported, areas must be expanded!
       default: {}
       selector:
         target:
-        
+
     actions:
       name: Actions
       description: Notifications or similar to be run. {{entities}} is replaced with the names of unavailable entities.
       selector:
         action:
-
 
 # Variables used in the automation
 variables:
@@ -85,20 +84,25 @@ variables:
   exclude: !input 'exclude'
 
   entities: >-
-    {% set result = namespace(entities=[]) %}
-    {% for state in states %}
-      {% if exclude.entity_id is defined %}
-        {% if state.state == 'unavailable' and not state.entity_id in exclude.entity_id %}
-          {% set result.entities = result.entities + [state.name] %}
-        {% endif %}
-      {% else %}
-        {% if state.state == 'unavailable' %}
-          {% set result.entities = result.entities + [state.name] %}
-        {% endif %}
-      {% endif %}
-    {% endfor %}
-    {{"⤵ \n- "}}{{result.entities|join('\n- ')}}
+    {% set result = namespace(includedEntities=[], excludedEntities = []) %}
 
+    {% if exclude.entity_id is defined %} 
+        {% set result.excludedEntities = result.excludedEntities + exclude.entity_id %}
+    {% endif %}
+
+    {% if exclude.device_id is defined %}
+      {% for device_id in exclude.device_id %}
+        {% set result.excludedEntities = result.excludedEntities + device_entities(device_id) %}
+      {% endfor %}
+    {% endif %}
+
+    {% for state in states | selectattr('state', 'eq', 'unavailable') %}
+        {% if state.state == 'unavailable' and not state.entity_id in result.excludedEntities %}
+          {% set result.includedEntities = result.includedEntities + [state.name] %}
+        {% endif %}
+    {% endfor %}
+
+    {{"⤵ \n- "}}{{result.includedEntities|join('\n- ')}}
 
 # Triggers
 trigger:
