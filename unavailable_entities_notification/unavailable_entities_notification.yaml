@@ -87,7 +87,7 @@ variables:
     {% set result = namespace(includedEntities=[], excludedEntities = []) %}
 
     {% if exclude.entity_id is defined %} 
-        {% set result.excludedEntities = result.excludedEntities + exclude.entity_id %}
+        {% set result.excludedEntities = result.excludedEntities + ([exclude.entity_id] if exclude.entity_id is string else exclude.entity_id) %}
     {% endif %}
 
     {% if exclude.device_id is defined %}
