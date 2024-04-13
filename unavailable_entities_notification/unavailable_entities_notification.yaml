@@ -97,7 +97,7 @@ variables:
     {% endif %}
 
     {% for state in states | selectattr('state', 'eq', 'unavailable') %}
-        {% if state.state == 'unavailable' and not state.entity_id in result.excludedEntities and (not device_id(my_id) or not device_attr(device_id(my_id), 'disabled_by')) %}
+        {% if state.state == 'unavailable' and not state.entity_id in result.excludedEntities and (not device_id(state.entity_id) or not device_attr(device_id(state.entity_id), 'disabled_by')) %}
           {% set result.includedEntities = result.includedEntities + [state.name] %}
         {% endif %}
     {% endfor %}
