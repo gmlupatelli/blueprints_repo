@@ -91,8 +91,47 @@ variables:
     {% endif %}
 
     {% if exclude.device_id is defined %}
-      {% for device_id in exclude.device_id %}
+      {% if exclude.device_id is not list %}
+        {% set device_id_list = [exclude.device_id] %}
+      {% else %}
+        {% set device_id_list = exclude.device_id %}
+      {% endif %}
+      {% for device_id in device_id_list %}
         {% set result.excludedEntities = result.excludedEntities + device_entities(device_id) %}
+      {% endfor %}
+    {% endif %}
+
+    {% if exclude.label_id is defined %}
+      {% if exclude.label_id is not list %}
+        {% set label_id_list = [exclude.label_id] %}
+      {% else %}
+        {% set label_id_list = exclude.label_id %}
+      {% endif %}
+      {% for label_id in label_id_list %}
+        {% set result.excludedEntities = result.excludedEntities + label_entities(label_id) %}
+        {% for area in label_areas(label_id) %}
+          {% set result.excludedEntities = result.excludedEntities + area_entities(area) %}
+          {% for device in area_devices(area) %}
+              {% set result.excludedEntities = result.excludedEntities + device_entities(device) %}
+          {% endfor %}
+        {% endfor %}
+        {% for device in label_devices(label_id) %}
+            {% set result.excludedEntities = result.excludedEntities + device_entities(device) %}
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+
+    {% if exclude.area_id is defined %}
+      {% if exclude.area_id is not list %}
+        {% set area_id_list = [exclude.area_id] %}
+      {% else %}
+        {% set area_id_list = exclude.area_id %}
+      {% endif %}
+      {% for area_id in area_id_list %}
+        {% set result.excludedEntities = result.excludedEntities + area_entities(area_id) %}
+        {% for device in area_devices(area_id) %}
+            {% set result.excludedEntities = result.excludedEntities + device_entities(device) %}
+        {% endfor %}
       {% endfor %}
     {% endif %}
 
