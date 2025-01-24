@@ -102,7 +102,7 @@ variables:
 
   sensors: >-
     {% set result = namespace(sensors=[]) %}
-    {% for state in states.sensor | selectattr('attributes.device_class', '==', 'battery') %}
+    {% for state in states.sensor | selectattr('attributes.device_class', 'search', 'battery') %}
       {% if exclude.entity_id is defined %}
         {% if 0 <= state.state | int(-1) < threshold | int and not state.entity_id in exclude.entity_id %}
           {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
@@ -113,7 +113,7 @@ variables:
         {% endif %}
       {% endif %}
     {% endfor %}
-    {% for state in states.binary_sensor | selectattr('attributes.device_class', '==', 'battery') | selectattr('state', '==', 'on') %}
+    {% for state in states.binary_sensor | selectattr('attributes.device_class', 'search', 'battery') | selectattr('state', '==', 'on') %}
       {% if exclude.entity_id is defined %}
         {% if not state.entity_id in exclude.entity_id %}
           {% set result.sensors = result.sensors + [state.name] %}
