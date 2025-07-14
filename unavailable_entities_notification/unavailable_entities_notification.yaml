@@ -141,7 +141,7 @@ variables:
         {% endif %}
     {% endfor %}
 
-    {{"⤵ \n- "}}{{result.includedEntities|join('\n- ')}}
+    {{"- "}}{{result.includedEntities|join('\n- ')}}
 
 # Triggers
 trigger:
@@ -168,7 +168,7 @@ condition:
   # Check if the entities list is not empty
   - condition: template
     value_template: >-
-        {{ entities != "⤵ \n-"}}
+        {{ entities != "- "}}
 
 
 # Actions
