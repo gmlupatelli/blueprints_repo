@@ -1,0 +1,229 @@
+blueprint:
+  name: HVAC Health Monitor
+  description: >
+    Monitors your HVAC system's performance by checking if the temperature
+    responds appropriately to heating and cooling cycles. Detects potential 
+    issues when the system runs but temperature doesn't change as expected.
+    This blueprint requires 4 Helper Entities:  
+    "input_number.hvac_monitor_start_temp", "input_datetime.hvac_monitor_start_time", 
+    "counter.hvac_cooling_failures", "counter.hvac_heating_failures".
+  
+  domain: automation
+
+  input:
+    thermostat:
+      name: Thermostat
+      description: The thermostat entity to monitor
+      selector:
+        entity:
+          domain: climate
+
+    monitoring_interval:
+      name: Monitoring Interval
+      description: How often to check the HVAC performance (in minutes)
+      default: 15
+      selector:
+        number:
+          min: 5
+          max: 60
+          unit_of_measurement: minutes
+
+    minimum_runtime:
+      name: Minimum Runtime Before Check
+      description: How long the system should run before checking effectiveness (in minutes)
+      default: 20
+      selector:
+        number:
+          min: 10
+          max: 60
+          unit_of_measurement: minutes
+
+    temperature_tolerance:
+      name: Temperature Change Tolerance
+      description: Minimum temperature change expected during runtime (in degrees Celsius)
+      default: 0.5
+      selector:
+        number:
+          min: 0.1
+          max: 3.0
+          step: 0.1
+          unit_of_measurement: "°C"
+
+    enable_cooling_check:
+      name: Enable Cooling Performance Check
+      description: Monitor cooling performance
+      default: true
+      selector:
+        boolean:
+
+    enable_heating_check:
+      name: Enable Heating Performance Check
+      description: Monitor heating performance
+      default: true
+      selector:
+        boolean:
+
+    max_consecutive_failures:
+      name: Maximum Consecutive Failures
+      description: >
+        How many consecutive failures before triggering alert. 
+        This counter is reseted after a successful heating or cooling cycle.
+      default: 4
+      selector:
+        number:
+          min: 1
+          max: 10
+
+    cooling_problem_actions:
+      name: Cooling Problem Actions
+      description: Actions to perform when a cooling issue is detected
+      default: []
+      selector:
+        action: {}
+
+    heating_problem_actions:
+      name: Heating Problem Actions
+      description: Actions to perform when a heating issue is detected
+      default: []
+      selector:
+        action: {}
+
+variables:
+  thermostat_entity: !input thermostat
+  min_runtime: !input minimum_runtime
+  temp_tolerance: !input temperature_tolerance
+  check_interval: !input monitoring_interval
+  max_failures: !input max_consecutive_failures
+
+trigger:
+  - platform: time_pattern
+    minutes: !input monitoring_interval
+
+condition:
+  - condition: template
+    value_template: >
+      {% set state = states(thermostat_entity) %}
+      {{ state in ['heating', 'cooling'] }}
+
+action:
+  - variables:
+      current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float }}"
+      hvac_action: "{{ states(thermostat_entity) }}"
+      target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float }}"
+
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.hvac_monitor_start_temp
+    data:
+      value: "{{ current_temp }}"
+
+  - service: input_datetime.set_datetime
+    target:
+      entity_id: input_datetime.hvac_monitor_start_time
+    data:
+      datetime: "{{ now() }}"
+
+  - delay:
+      minutes: "{{ min_runtime }}"
+
+  - condition: template
+    value_template: >
+      {% set current_state = states(thermostat_entity) %}
+      {% set available = not is_state(thermostat_entity, 'unavailable') and current_state != 'off' %}
+      {{ available and current_state == hvac_action }}
+
+  - variables:
+      new_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float }}"
+      start_temp: "{{ states('input_number.hvac_monitor_start_temp') | float }}"
+      temp_change: "{{ new_temp - start_temp }}"
+
+  - choose:
+    - conditions:
+        - condition: template
+          value_template: "{{ hvac_action == 'cooling' }}"
+        - condition: template
+          value_template: "{{ input('enable_cooling_check') }}"
+        - condition: template
+          value_template: "{{ temp_change >= -temp_tolerance }}"
+      sequence:
+        - service: counter.increment
+          target:
+            entity_id: counter.hvac_cooling_failures
+        - condition: template
+          value_template: >
+            {{ states('counter.hvac_cooling_failures') | int >= max_failures }}
+        - service: counter.reset
+          target:
+            entity_id: counter.hvac_cooling_failures
+        - service: persistent_notification.create
+          data:
+            title: "HVAC Cooling Alert"
+            message: >
+              Cooling issue: Temp only changed {{ temp_change | round(2) }}°C after {{ min_runtime }} minutes.
+              Expected decrease of at least {{ -temp_tolerance }}°C.
+        - service: logbook.log
+          data:
+            name: "HVAC Health Monitor"
+            message: >
+              Cooling failure detected: Temperature changed only {{ temp_change | round(2) }}°C 
+              after running for {{ min_runtime }} minutes. Expected at least a {{ -temp_tolerance }}°C decrease.
+        - choose: []
+          default: !input cooling_problem_actions
+
+    - conditions:
+        - condition: template
+          value_template: "{{ hvac_action == 'heating' }}"
+        - condition: template
+          value_template: "{{ input('enable_heating_check') }}"
+        - condition: template
+          value_template: "{{ temp_change <= temp_tolerance }}"
+      sequence:
+        - service: counter.increment
+          target:
+            entity_id: counter.hvac_heating_failures
+        - condition: template
+          value_template: >
+            {{ states('counter.hvac_heating_failures') | int >= max_failures }}
+        - service: counter.reset
+          target:
+            entity_id: counter.hvac_heating_failures
+        - service: persistent_notification.create
+          data:
+            title: "HVAC Heating Alert"
+            message: >
+              Heating issue: Temp only changed {{ temp_change | round(2) }}°C after {{ min_runtime }} minutes.
+              Expected increase of at least {{ temp_tolerance }}°C.
+        - service: logbook.log
+          data:
+            name: "HVAC Health Monitor"
+            message: >
+              Heating failure detected: Temperature changed only {{ temp_change | round(2) }}°C 
+              after running for {{ min_runtime }} minutes. Expected at least a {{ temp_tolerance }}°C increase.
+        - choose: []
+          default: !input heating_problem_actions
+
+    - conditions:
+        - condition: template
+          value_template: "{{ hvac_action == 'cooling' }}"
+        - condition: template
+          value_template: "{{ input('enable_cooling_check') }}"
+        - condition: template
+          value_template: "{{ temp_change < -temp_tolerance }}"
+      sequence:
+        - service: counter.reset
+          target:
+            entity_id: counter.hvac_cooling_failures
+
+    - conditions:
+        - condition: template
+          value_template: "{{ hvac_action == 'heating' }}"
+        - condition: template
+          value_template: "{{ input('enable_heating_check') }}"
+        - condition: template
+          value_template: "{{ temp_change > temp_tolerance }}"
+      sequence:
+        - service: counter.reset
+          target:
+            entity_id: counter.hvac_heating_failures
+
+mode: single
