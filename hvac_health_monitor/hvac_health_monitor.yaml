@@ -128,7 +128,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'cooling' }}"
         - condition: template
-          value_template: "{{ enable_cooling_check }}"
+          value_template: "{{ input('enable_cooling_check') }}"
         - condition: template
           value_template: "{{ temp_change >= -temp_tolerance }}"
       sequence:
@@ -160,7 +160,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"
         - condition: template
-          value_template: "{{ enable_heating_check }}"
+          value_template: "{{ input('enable_heating_check') }}"
         - condition: template
           value_template: "{{ temp_change <= temp_tolerance }}"
       sequence:
@@ -192,7 +192,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'cooling' }}"
         - condition: template
-          value_template: "{{ enable_cooling_check }}"
+          value_template: "{{ input('enable_cooling_check') }}"
         - condition: template
           value_template: "{{ temp_change < -temp_tolerance }}"
       sequence:
@@ -204,7 +204,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"
         - condition: template
-          value_template: "{{ enable_heating_check }}"
+          value_template: "{{ input('enable_heating_check') }}"
         - condition: template
           value_template: "{{ temp_change > temp_tolerance }}"
       sequence:
