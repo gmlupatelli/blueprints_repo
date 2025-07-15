@@ -13,3 +13,14 @@ Blueprint to support Moes zigbee button.
 
 ### unavailable_entities_notification
 Blueprint that will trigger notifications when devices are not available.
+
+### havac_health_monitor
+Blueprint that:
+- Monitors thermostat heating and cooling effectiveness by checking temperature changes after a configurable runtime.
+- Tracks consecutive heating and cooling failures using counters.
+- Sends persistent notifications and logs detailed failure messages to Home Assistant logbook.
+- Supports user-configurable parameters including monitoring interval, runtime, temperature tolerance, and max failures.
+- Includes separate customizable action blocks for heating and cooling issues.
+- Designed primarily for central HVAC systems; inspired by Nest Thermostat health checks.
+- Requires 4 helper entities: input_number, input_datetime, and two counters.
+- Temperature checks and logs use Celsius units.
