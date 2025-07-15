@@ -18,16 +18,6 @@ blueprint:
         entity:
           domain: climate
 
-    monitoring_interval:
-      name: Monitoring Interval
-      description: How often to check the HVAC performance (in minutes)
-      default: 15
-      selector:
-        number:
-          min: 5
-          max: 60
-          unit_of_measurement: minutes
-
     minimum_runtime:
       name: Minimum Runtime Before Check
       description: How long the system should run before checking effectiveness (in minutes)
@@ -92,23 +82,19 @@ variables:
   thermostat_entity: !input thermostat
   min_runtime: !input minimum_runtime
   temp_tolerance: !input temperature_tolerance
-  check_interval: !input monitoring_interval
   max_failures: !input max_consecutive_failures
 
 trigger:
-  - platform: time_pattern
-    minutes: !input monitoring_interval
-
-condition:
-  - condition: template
-    value_template: >
-      {% set state = states(thermostat_entity) %}
-      {{ state in ['heating', 'cooling'] }}
+  - platform: state
+    entity_id: !input thermostat
+    to:
+      - 'heating'
+      - 'cooling'
 
 action:
   - variables:
+      hvac_action: "{{ trigger.to_state.state }}"
       current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float }}"
-      hvac_action: "{{ states(thermostat_entity) }}"
       target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float }}"
 
   - service: input_number.set_value
@@ -142,7 +128,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'cooling' }}"
         - condition: template
-          value_template: "{{ input('enable_cooling_check') }}"
+          value_template: "{{ enable_cooling_check }}"
         - condition: template
           value_template: "{{ temp_change >= -temp_tolerance }}"
       sequence:
@@ -174,7 +160,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"
         - condition: template
-          value_template: "{{ input('enable_heating_check') }}"
+          value_template: "{{ enable_heating_check }}"
         - condition: template
           value_template: "{{ temp_change <= temp_tolerance }}"
       sequence:
@@ -206,7 +192,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'cooling' }}"
         - condition: template
-          value_template: "{{ input('enable_cooling_check') }}"
+          value_template: "{{ enable_cooling_check }}"
         - condition: template
           value_template: "{{ temp_change < -temp_tolerance }}"
       sequence:
@@ -218,7 +204,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"
         - condition: template
-          value_template: "{{ input('enable_heating_check') }}"
+          value_template: "{{ enable_heating_check }}"
         - condition: template
           value_template: "{{ temp_change > temp_tolerance }}"
       sequence:
