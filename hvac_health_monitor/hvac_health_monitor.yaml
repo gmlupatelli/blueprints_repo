@@ -4,16 +4,29 @@ blueprint:
     Monitors your HVAC system's performance by checking if the temperature
     responds appropriately to heating and cooling cycles. Detects potential 
     issues when the system runs but temperature doesn't change as expected.
-    This blueprint requires 4 Helper Entities:  
-    "input_number.hvac_monitor_start_temp", "input_datetime.hvac_monitor_start_time", 
-    "counter.hvac_cooling_failures", "counter.hvac_heating_failures".
+    
+    📋 SETUP REQUIRED: This blueprint requires 4 Helper Entities and your thermostat 
+    must have an 'hvac_action' attribute. See the README.md file in this folder for 
+    complete setup instructions and troubleshooting guide.
+    
+    Required Helper Entities: "input_number.hvac_monitor_start_temp", 
+    "input_datetime.hvac_monitor_start_time", "counter.hvac_cooling_failures", 
+    "counter.hvac_heating_failures".
   domain: automation
-  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/low_battery_notification/low_battery_notification.yaml
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/hvac_health_monitor/hvac_health_monitor.yaml
 
   input:
     thermostat:
       name: Thermostat
-      description: The thermostat entity to monitor
+      description: >
+        The thermostat entity to monitor.
+        
+        ⚠️ IMPORTANT: Your thermostat must have an 'hvac_action' attribute that reports 'heating' 
+        or 'cooling' when the system is actively running. Check in Developer Tools > States to 
+        verify your thermostat shows hvac_action: heating/cooling/idle.
+        
+        If your thermostat doesn't have hvac_action or reports different values, this blueprint 
+        will not trigger properly.
       selector:
         entity:
           domain: climate
@@ -117,20 +130,26 @@ variables:
   heating_temp_tolerance: !input heating_temperature_tolerance
   max_failures: !input max_consecutive_failures
 
-# Trigger when thermostat changes to heating or cooling mode
-# This starts our monitoring cycle
+# Trigger when thermostat HVAC action changes to heating or cooling
+# This monitors the actual system operation, not just the mode setting
 trigger:
   - platform: state
     entity_id: !input thermostat
+    attribute: hvac_action
     to:
       - 'heating'     # Monitor when heating starts
       - 'cooling'     # Monitor when cooling starts
 
 action:
+  # === PHASE 0: VALIDATE TRIGGER ===
+  # Ensure this automation was triggered by a proper hvac_action change, not manually
+  - condition: template
+    value_template: "{{ trigger.to_state is defined and trigger.to_state.state in ['heating', 'cooling'] }}"
+
   # === PHASE 1: CAPTURE INITIAL CONDITIONS ===
   # Record the starting conditions when HVAC begins operating
   - variables:
-      hvac_action: "{{ trigger.to_state.state }}"                              # Store which mode triggered (heating/cooling)
+      hvac_action: "{{ trigger.to_state.state }}"                              # Store which hvac_action triggered (heating/cooling)
       current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float }}"  # Current room temperature
       target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float }}"           # Thermostat setpoint
 
@@ -220,13 +239,13 @@ action:
       minutes: "{{ min_runtime }}"
 
   # === PHASE 3: VERIFY SYSTEM IS STILL RUNNING ===
-  # Only proceed if the thermostat is still in the same mode and available
+  # Only proceed if the thermostat is still in the same hvac_action and available
   # This prevents false failures if the system legitimately turned off
   - condition: template
     value_template: >
-      {% set current_state = states(thermostat_entity) %}
-      {% set available = not is_state(thermostat_entity, 'unavailable') and current_state != 'off' %}
-      {{ available and current_state == hvac_action }}
+      {% set current_hvac_action = state_attr(thermostat_entity, 'hvac_action') %}
+      {% set available = not is_state(thermostat_entity, 'unavailable') %}
+      {{ available and current_hvac_action == hvac_action }}
 
   # === PHASE 4: CALCULATE TEMPERATURE CHANGE ===
   # Compare current temperature to starting temperature
