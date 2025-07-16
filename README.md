@@ -10,19 +10,7 @@ This repository contains a collection of well-documented, production-ready bluep
 
 ## Available Blueprints
 
-### 📱 Low Battery Notification
-**File:** `low_battery_notification/low_battery_notification.yaml`
-
-Automatically monitors all battery-powered devices and sends notifications when they reach a user-defined low battery threshold.
-
-**Features:**
-- Configurable battery threshold (5-100%)
-- Flexible scheduling (select specific weekdays)
-- Advanced exclusion system supporting entities, devices, areas, and labels
-- Supports both regular battery sensors and binary battery sensors
-- Customizable notification actions
-
-### 🔌 MOES Wireless Remote Switch Controller  
+### 🎛️ MOES Wireless Remote Switch Controller  
 **File:** `moes_controler/moes_double_rocker.yaml`
 
 Comprehensive automation for MOES Wireless Remote Switch (Double Rocker) using ZHA events.
@@ -33,6 +21,46 @@ Comprehensive automation for MOES Wireless Remote Switch (Double Rocker) using Z
 - Separate customizable actions for each press type
 - ZHA integration with automatic event parsing
 - Restart mode for immediate response to new button presses
+
+### 🎛️ IKEA Five Button Remote for Lights
+**File:** `ikea_five_button_remote/ikea_five_button_remote.yaml`
+
+Advanced automation for IKEA TRADFRI 5-button remote controls with comprehensive light management capabilities.
+
+**Features:**
+- Center button toggle with optional forced brightness setting
+- Smooth brightness control with up/down buttons (single press and hold)
+- Customizable left/right button actions for short and long press
+- ZHA integration with detailed event parameter documentation
+- Supports single lights, light groups, or areas
+- Transition effects for smooth light changes
+- Restart mode for immediate response to button presses
+
+### 🎛️ Tuya 2-Button Scene Switch
+**File:** `tuya_2button_scene_switch/tuya_2button_scene_switch.yaml`
+
+Simple and reliable automation for Tuya TS0042 2-button scene switches using ZHA events.
+
+**Features:**
+- Support for both left and right buttons
+- Single and double press detection for each button
+- Four separate customizable action configurations
+- ZHA integration with endpoint-based button identification
+- Compatible with Tuya TS0042 model scene switches
+- No long press functionality (simplified design)
+- Restart mode for immediate response to button presses
+
+### 🔍 Low Battery Notification
+**File:** `low_battery_notification/low_battery_notification.yaml`
+
+Automatically monitors all battery-powered devices and sends notifications when they reach a user-defined low battery threshold.
+
+**Features:**
+- Configurable battery threshold (5-100%)
+- Flexible scheduling (select specific weekdays)
+- Advanced exclusion system supporting entities, devices, areas, and labels
+- Supports both regular battery sensors and binary battery sensors
+- Customizable notification actions
 
 ### 🔍 Unavailable Entity Detection & Notification
 **File:** `unavailable_entities_notification/unavailable_entities_notification.yaml`
