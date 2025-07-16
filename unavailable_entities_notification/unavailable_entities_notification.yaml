@@ -1,10 +1,13 @@
 blueprint:
   name: Unavailable entity detection & notification
-  description: Regularly test all entities' status to check for unavailability.
+  description: >
+    Regularly test all entities' status to check for unavailability.
+    Supports exclusion by entities, devices, areas, and labels for flexible filtering.
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable_entities_notification.yaml
 
-  # Blueprint Inputs
+  # === BLUEPRINT INPUTS ===
+  # Configure when and how to check for unavailable entities
   input:
     time:
       name: Time to test on
@@ -12,7 +15,9 @@ blueprint:
       default: '10:00:00'
       selector:
         time: {}
-    # In this segment the user will selected the week days that te automation will be exectuted.
+    
+    # === WEEKDAY SCHEDULE CONFIGURATION ===
+    # Select which days of the week to run the unavailable entity check
     monday_enabled:
       name: 'Monday'
       description: 'Run test on Monday'
@@ -56,36 +61,48 @@ blueprint:
       selector:
         boolean:
 
+    # === EXCLUSION CONFIGURATION ===
+    # Define which entities to exclude from unavailability monitoring
     exclude:
       name: Excluded Entities
-      description: Entities (e.g. smartphone) to exclude from detection. Only entities and devices are supported, areas must be expanded!
+      description: Entities (e.g. smartphone) to exclude from detection. Entities, devices, areas, and labels are supported!
       default: {}
       selector:
         target:
 
+    # === NOTIFICATION ACTIONS ===
+    # Define what happens when unavailable entities are detected
     actions:
       name: Actions
       description: Notifications or similar to be run. {{entities}} is replaced with the names of unavailable entities.
       selector:
         action:
 
-# Variables used in the automation
+# === VARIABLES ===
+# Store user inputs as variables for easier reference throughout the automation
 variables:
-  monday_enabled: !input 'monday_enabled'
-  tuesday_enabled: !input 'tuesday_enabled'
-  wednesday_enabled: !input 'wednesday_enabled'
-  thursday_enabled: !input 'thursday_enabled'
-  friday_enabled: !input 'friday_enabled'
-  saturday_enabled: !input 'saturday_enabled'
-  sunday_enabled: !input 'sunday_enabled'
+  # Weekday schedule variables
+  monday_enabled: !input 'monday_enabled'    # Run on Monday?
+  tuesday_enabled: !input 'tuesday_enabled'  # Run on Tuesday?
+  wednesday_enabled: !input 'wednesday_enabled'  # Run on Wednesday?
+  thursday_enabled: !input 'thursday_enabled'    # Run on Thursday?
+  friday_enabled: !input 'friday_enabled'        # Run on Friday?
+  saturday_enabled: !input 'saturday_enabled'    # Run on Saturday?
+  sunday_enabled: !input 'sunday_enabled'        # Run on Sunday?
 
-  current_day: '{{ now().weekday() | int }}'
+  current_day: '{{ now().weekday() | int }}'     # Current day of week (0=Monday, 6=Sunday)
 
-  exclude: !input 'exclude'
+  # Entity monitoring configuration
+  exclude: !input 'exclude'                      # Exclusion input from blueprint
 
+  # === UNAVAILABLE ENTITY DETECTION WITH EXCLUSION LOGIC ===
+  # Build a list of unavailable entities, excluding those specified by the user
+  # Exclusion supports entities, devices, areas, and labels for maximum flexibility
   entities: >-
     {% set result = namespace(includedEntities=[], excludedEntities = []) %}
 
+    {# === ENTITY EXCLUSION === #}
+    {# Exclude specific entities directly by entity_id #}
     {% if exclude.entity_id is defined %} 
         {% set result.excludedEntities = result.excludedEntities + ([exclude.entity_id] if exclude.entity_id is string else exclude.entity_id) %}
     {% endif %}
@@ -101,6 +118,8 @@ variables:
       {% endfor %}
     {% endif %}
 
+    {# === LABEL EXCLUSION === #}
+    {# Exclude entities, areas, and devices associated with specified labels #}
     {% if exclude.label_id is defined %}
       {% if exclude.label_id is not list %}
         {% set label_id_list = [exclude.label_id] %}
@@ -121,6 +140,8 @@ variables:
       {% endfor %}
     {% endif %}
 
+    {# === AREA EXCLUSION === #}
+    {# Exclude all entities and devices in specified areas #}
     {% if exclude.area_id is defined %}
       {% if exclude.area_id is not list %}
         {% set area_id_list = [exclude.area_id] %}
@@ -143,15 +164,17 @@ variables:
 
     {{"- "}}{{result.includedEntities|join('\n- ')}}
 
-# Triggers
+# === AUTOMATION TRIGGERS ===
+# Run at the specified time each day
 trigger:
   - platform: time
     at: !input 'time'
 
 
-# Conditions used to determine if the automation should run for the specific trigger event
+# === AUTOMATION CONDITIONS ===
+# Only run if it's a selected weekday and there are unavailable entities
 condition:
-# Check if the automation is supposed to be executed during that specific weekday
+  # Check if automation should run on the current weekday
   - condition: template
     value_template: >-
         {{ 
@@ -165,17 +188,18 @@ condition:
         }}
 
 
-  # Check if the entities list is not empty
+  # Only proceed if there are actually unavailable entities to report
   - condition: template
     value_template: >-
         {{ entities != "- "}}
 
-
-# Actions
+# === AUTOMATION ACTIONS ===
+# Execute user-defined actions when unavailable entities are detected
 action:
   - choose: []
     default: !input 'actions'
 
-
+# === AUTOMATION CONFIGURATION ===
+# Prevent multiple instances and handle overflow gracefully
 mode: single
 max_exceeded: silent
