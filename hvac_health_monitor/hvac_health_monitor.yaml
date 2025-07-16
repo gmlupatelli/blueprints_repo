@@ -7,8 +7,8 @@ blueprint:
     This blueprint requires 4 Helper Entities:  
     "input_number.hvac_monitor_start_temp", "input_datetime.hvac_monitor_start_time", 
     "counter.hvac_cooling_failures", "counter.hvac_heating_failures".
-  
   domain: automation
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/low_battery_notification/hvac_health_monitor.yaml
 
   input:
     thermostat:
