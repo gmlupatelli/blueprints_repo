@@ -1,0 +1,106 @@
+blueprint:
+  name: ZHA - Tuya 2-Button Scene Switch - No Long Press
+  description: >
+    Automate your Tuya 2-Button Scene Switch using ZHA events.
+    
+    This blueprint supports single and double press actions for both buttons,
+    but does not include long press functionality. Each button can trigger
+    different actions based on press type (single vs double).
+    
+    Compatible with Tuya TS0042 model 2-button scene switches.
+  domain: automation
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/tuya_2button_scene_switch/tuya_2button_scene_switch.yaml
+
+  input:
+    tuya_2button_scene_switch:
+      name: Tuya 2-Button Scene Switch
+      description: Tuya 2-Button Scene Switch to use
+      selector:
+        device:
+          integration: zha
+          model: TS0042
+
+    button_one_short_press:
+      name: Single Press
+      description: Action to run on button 1 (left) single press
+      default: []
+      selector:
+        action: {}
+
+    button_one_double_press:
+      name: Double Press
+      description: Action to run on button 1 (left) double press
+      default: []
+      selector:
+        action: {}
+
+    button_two_short_press:
+      name: Single Press
+      description: Action to run on button 2 (right) single press
+      default: []
+      selector:
+        action: {}
+
+    button_two_double_press:
+      name: Double Press
+      description: Action to run on button 2 (right) double press
+      default: []
+      selector:
+        action: {}
+
+# Trigger when ZHA device events are received from the specified Tuya switch
+# This listens for all button presses from the 2-button scene switch
+trigger:
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input 'tuya_2button_scene_switch'
+
+action:
+  # === PHASE 1: EXTRACT ZHA EVENT DATA ===
+  # Parse the incoming ZHA event to determine which button was pressed and how
+  - variables:
+      command: '{{ trigger.event.data.command }}'        # ZHA command type (remote_button_short_press, remote_button_double_press)
+      endpoint_id: '{{ trigger.event.data.endpoint_id }}' # Button identifier (1 = left button, 2 = right button)
+
+  # === PHASE 2: ROUTE TO APPROPRIATE BUTTON HANDLER ===
+  # Analyze the ZHA event data and execute the corresponding button action
+  - choose:
+      # *** SINGLE PRESS DETECTION ***
+      # ZHA Command: 'remote_button_short_press'
+      # Handle single press events for both buttons
+      - conditions: "{{ command == 'remote_button_short_press' }}"
+        sequence:
+          # Route to specific button based on endpoint ID
+          - choose:
+              # *** BUTTON 1 (LEFT) - SINGLE PRESS ***
+              # Endpoint: 1 identifies the left button
+              - conditions: '{{ endpoint_id == 1 }}'
+                sequence: !input 'button_one_short_press'
+              
+              # *** BUTTON 2 (RIGHT) - SINGLE PRESS ***
+              # Endpoint: 2 identifies the right button
+              - conditions: '{{ endpoint_id == 2 }}'
+                sequence: !input 'button_two_short_press'
+
+      # *** DOUBLE PRESS DETECTION ***
+      # ZHA Command: 'remote_button_double_press'
+      # Handle double press events for both buttons
+      - conditions: "{{ command == 'remote_button_double_press' }}"
+        sequence:
+          # Route to specific button based on endpoint ID
+          - choose:
+              # *** BUTTON 1 (LEFT) - DOUBLE PRESS ***
+              # Endpoint: 1 identifies the left button
+              - conditions: '{{ endpoint_id == 1 }}'
+                sequence: !input 'button_one_double_press'
+              
+              # *** BUTTON 2 (RIGHT) - DOUBLE PRESS ***
+              # Endpoint: 2 identifies the right button
+              - conditions: '{{ endpoint_id == 2 }}'
+                sequence: !input 'button_two_double_press'
+
+# Restart mode ensures only one instance runs at a time
+# This prevents overlapping button presses from interfering with each other
+mode: restart
+max_exceeded: silent

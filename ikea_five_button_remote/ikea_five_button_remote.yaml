@@ -1,0 +1,261 @@
+blueprint:
+  name: ZHA - IKEA five button remote for lights v2
+  description: 'Control lights with an IKEA five button remote (the round ones).
+
+    The middle "on" button, toggle the lights on/off to the last set brightness
+    (unless the force brightness is toggled on in the blueprint).
+
+    Dim up/down buttons will change the brightness smoothly and can be pressed
+    and hold until the brightness is satisfactory.
+
+    The "left" and "right" buttons can be assigned to a short and long button
+    press action. This allows you to assign, e.g., a scene or anything else.'  
+  domain: automation
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/ikea_five_button_remote/ikea_five_button_remote.yaml
+  
+  # Store user inputs as variables for easier reference throughout the automation
+  input:
+    # Select the IKEA TRADFRI remote device that will control the lights
+    # This must be a ZHA-integrated device for proper event handling
+    
+    remote:
+      name: Remote
+      description: IKEA remote to use
+      selector:
+        device:
+          integration: zha
+          manufacturer: IKEA of Sweden
+          model: TRADFRI remote control
+          multiple: false
+    
+    # Target light entities or groups that will be controlled by this remote
+    # Supports single lights, light groups, or areas with light entities
+    
+    light:
+      name: Light(s)
+      description: The light(s) to control
+      selector:
+        target:
+          entity:
+            domain: light
+    
+    # Control whether to force a specific brightness when turning lights on
+    # When enabled, center button will always set lights to the configured brightness
+    # When disabled, lights will return to their previous brightness level
+    
+    force_brightness:
+      name: Force turn on brightness
+      description: 'Force the brightness to the set level below, when the "on" button
+        on the remote is pushed and lights turn on.'
+      default: false
+      selector:
+        boolean: {}
+    
+    brightness:
+      name: Brightness
+      description: Brightness of the light(s) when turning on
+      default: 50
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          mode: slider
+          step: 1.0
+          unit_of_measurement: '%'
+    
+    # Configure custom action for left button short press
+    # This can be any Home Assistant action: scenes, scripts, services, etc.
+    # ZHA event: cluster_id=5, endpoint_id=1, params.param1=257
+    
+    button_left_short:
+      name: Left button - short press
+      description: Action to run on short left button press
+      default: []
+      selector:
+        action: {}
+    
+    button_left_long:
+      name: Left button - long press
+      description: Action to run on long left button press
+      default: []
+      selector:
+        action: {}
+    
+    # Configure custom action for right button short press
+    # This can be any Home Assistant action: scenes, scripts, services, etc.
+    # ZHA event: cluster_id=5, endpoint_id=1, params.param1=256
+    
+    button_right_short:
+      name: Right button - short press
+      description: Action to run on short right button press
+      default: []
+      selector:
+        action: {}
+    
+    button_right_long:
+      name: Right button - long press
+      description: Action to run on long right button press
+      default: []
+      selector:
+        action: {}
+
+# Store user inputs as variables for easier reference throughout the automation
+variables:
+  # Extract the force brightness setting for use in conditions
+  force_brightness: !input 'force_brightness'
+
+# Trigger when ZHA device events are received from the specified IKEA remote
+# This listens for all button presses and releases from the remote control
+trigger:
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input 'remote'
+
+action:
+  # === PHASE 1: EXTRACT ZHA EVENT DATA ===
+  # Parse the incoming ZHA event to determine which button was pressed and how
+  - variables:
+      command: '{{ trigger.event.data.command }}'        # ZHA command type (toggle, step, move, press, hold)
+      cluster_id: '{{ trigger.event.data.cluster_id }}'  # ZHA cluster identifier for button classification
+      endpoint_id: '{{ trigger.event.data.endpoint_id }}' # ZHA endpoint (always 1 for TRADFRI remote)
+      params: '{{ trigger.event.data.params }}'          # Additional parameters for button identification
+  
+  # === PHASE 2: ROUTE TO APPROPRIATE BUTTON HANDLER ===
+  # Analyze the ZHA event data and execute the corresponding button action
+  - choose:
+      # *** CENTER BUTTON - TOGGLE LIGHTS ON/OFF ***
+      # ZHA Command: 'toggle', Cluster: 6 (On/Off), Endpoint: 1
+      # This is the main power button in the center of the remote
+      - conditions:
+          - '{{ command == ''toggle'' }}'
+          - '{{ cluster_id == 6 }}'
+          - '{{ endpoint_id == 1 }}'
+        sequence:
+          # Determine if we should force brightness or preserve last state
+          - choose:
+              # Force brightness mode: Always set to configured brightness level
+              - conditions: '{{ force_brightness }}'
+                sequence:
+                  - service: light.toggle
+                    target: !input 'light'
+                    data:
+                      transition: 1
+                      brightness_pct: !input 'brightness'
+            # Default mode: Toggle lights preserving their previous brightness
+            default:
+              - service: light.toggle
+                target: !input 'light'
+                data:
+                  transition: 1
+      
+      # *** BRIGHTNESS UP - SINGLE PRESS ***
+      # ZHA Command: 'step_with_on_off', Cluster: 8 (Level Control), Endpoint: 1
+      # Increases brightness by one step (10%) and turns lights on if off
+      - conditions:
+          - '{{ command == ''step_with_on_off'' }}'
+          - '{{ cluster_id == 8 }}'
+          - '{{ endpoint_id == 1 }}'
+        sequence:
+          - service: light.turn_on
+            target: !input 'light'
+            data:
+              brightness_step: 10  # Increase brightness by 10%
+              transition: 1
+      
+      # *** BRIGHTNESS UP - CONTINUOUS (HOLD) ***
+      # ZHA Command: 'move_with_on_off', Cluster: 8 (Level Control), Endpoint: 1
+      # Continuously increases brightness while button is held down
+      - conditions:
+          - '{{ command == ''move_with_on_off'' }}'
+          - '{{ cluster_id == 8 }}'
+          - '{{ endpoint_id == 1 }}'
+        sequence:
+          # Execute brightness increases in a loop while button is held
+          - repeat:
+              count: 10  # Maximum 10 iterations to prevent infinite loops
+              sequence:
+                - service: light.turn_on
+                  target: !input 'light'
+                  data:
+                    brightness_step: 10  # Increase by 10% each iteration
+                    transition: 1
+                - delay: 1  # 1 second delay between brightness steps
+      
+      # *** BRIGHTNESS DOWN - SINGLE PRESS ***
+      # ZHA Command: 'step', Cluster: 8 (Level Control), Endpoint: 1
+      # Decreases brightness by one step (10%) without turning lights off
+      - conditions:
+          - '{{ command == ''step'' }}'
+          - '{{ cluster_id == 8 }}'
+          - '{{ endpoint_id == 1 }}'
+        sequence:
+          - service: light.turn_on
+            target: !input 'light'
+            data:
+              brightness_step: -10  # Decrease brightness by 10%
+              transition: 1
+      
+      # *** BRIGHTNESS DOWN - CONTINUOUS (HOLD) ***
+      # ZHA Command: 'move', Cluster: 8 (Level Control), Endpoint: 1
+      # Continuously decreases brightness while button is held down
+      - conditions:
+          - '{{ command == ''move'' }}'
+          - '{{ cluster_id == 8 }}'
+          - '{{ endpoint_id == 1 }}'
+        sequence:
+          # Execute brightness decreases in a loop while button is held
+          - repeat:
+              count: 10  # Maximum 10 iterations to prevent infinite loops
+              sequence:
+                - service: light.turn_on
+                  target: !input 'light'
+                  data:
+                    brightness_step: -10  # Decrease by 10% each iteration
+                    transition: 1
+                - delay: 1  # 1 second delay between brightness steps
+      
+      # *** LEFT BUTTON - SHORT PRESS ***
+      # ZHA Command: 'press', Cluster: 5 (Scenes), Endpoint: 1, Param1: 257
+      # Executes user-defined action for left button quick press
+      - conditions:
+          - '{{ command == ''press'' }}'
+          - '{{ cluster_id == 5 }}'
+          - '{{ endpoint_id == 1 }}'
+          - '{{ params.param1 == 257 }}'  # Unique identifier for left button short press
+        sequence: !input 'button_left_short'
+      
+      # *** LEFT BUTTON - LONG PRESS ***
+      # ZHA Command: 'hold', Cluster: 5 (Scenes), Endpoint: 1, Param1: 3329
+      # Executes user-defined action for left button extended hold
+      - conditions:
+          - '{{ command == ''hold'' }}'
+          - '{{ cluster_id == 5 }}'
+          - '{{ endpoint_id == 1 }}'
+          - '{{ params.param1 == 3329 }}'  # Unique identifier for left button long press
+        sequence: !input 'button_left_long'
+      
+      # *** RIGHT BUTTON - SHORT PRESS ***
+      # ZHA Command: 'press', Cluster: 5 (Scenes), Endpoint: 1, Param1: 256
+      # Executes user-defined action for right button quick press
+      - conditions:
+          - '{{ command == ''press'' }}'
+          - '{{ cluster_id == 5 }}'
+          - '{{ endpoint_id == 1 }}'
+          - '{{ params.param1 == 256 }}'  # Unique identifier for right button short press
+        sequence: !input 'button_right_short'
+      
+      # *** RIGHT BUTTON - LONG PRESS ***
+      # ZHA Command: 'hold', Cluster: 5 (Scenes), Endpoint: 1, Param1: 3328
+      # Executes user-defined action for right button extended hold
+      - conditions:
+          - '{{ command == ''hold'' }}'
+          - '{{ cluster_id == 5 }}'
+          - '{{ endpoint_id == 1 }}'
+          - '{{ params.param1 == 3328 }}'  # Unique identifier for right button long press
+        sequence: !input 'button_right_long'
+
+# Restart mode ensures only one instance runs at a time
+# This prevents overlapping button presses from interfering with each other
+mode: restart
+max_exceeded: silent
