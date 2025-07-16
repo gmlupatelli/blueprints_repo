@@ -1,0 +1,97 @@
+# Debug automation for HVAC Health Monitor Blueprint
+# This helps you understand hvac_action changes and test blueprint compatibility
+
+automation:
+  - alias: "HVAC Debug - HVAC Action Changes"
+    description: "Logs hvac_action changes to help debug the HVAC Health Monitor blueprint"
+    trigger:
+      - platform: state
+        entity_id: climate.your_thermostat  # Replace with your actual thermostat entity
+        attribute: hvac_action
+    action:
+      - service: logbook.log
+        data:
+          name: "HVAC Debug - Action Change"
+          message: >
+            HVAC Action changed from '{{ trigger.from_state.attributes.hvac_action | default('unknown') }}' 
+            to '{{ trigger.to_state.attributes.hvac_action | default('unknown') }}'.
+            Thermostat State: {{ trigger.to_state.state }}
+            Current Temp: {{ state_attr(trigger.entity_id, 'current_temperature') }}°C
+            Target Temp: {{ state_attr(trigger.entity_id, 'temperature') }}°C
+      
+      - service: persistent_notification.create
+        data:
+          title: "🔧 HVAC Action Debug"
+          message: >
+            HVAC Action: {{ trigger.from_state.attributes.hvac_action | default('unknown') }} → {{ trigger.to_state.attributes.hvac_action | default('unknown') }}
+            
+            {% if trigger.to_state.attributes.hvac_action in ['heating', 'cooling'] %}
+            ✅ Blueprint should trigger on this change!
+            {% else %}
+            ℹ️ Blueprint won't trigger (not heating/cooling)
+            {% endif %}
+
+  - alias: "HVAC Debug - All State Changes"
+    description: "Logs all thermostat changes for comprehensive debugging"
+    trigger:
+      - platform: state
+        entity_id: climate.your_thermostat  # Replace with your actual thermostat entity
+    action:
+      - service: logbook.log
+        data:
+          name: "HVAC Debug - Full State"
+          message: >
+            Full thermostat change:
+            State: {{ trigger.from_state.state }} → {{ trigger.to_state.state }}
+            HVAC Action: {{ trigger.from_state.attributes.hvac_action | default('unknown') }} → {{ trigger.to_state.attributes.hvac_action | default('unknown') }}
+            Current Temp: {{ state_attr(trigger.entity_id, 'current_temperature') }}°C
+            Target Temp: {{ state_attr(trigger.entity_id, 'temperature') }}°C
+
+  - alias: "HVAC Debug - Manual Test"
+    description: "Manual test to check blueprint compatibility"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.test_hvac_trigger  # Create this helper to test manually
+        to: 'on'
+    action:
+      - service: logbook.log
+        data:
+          name: "Manual HVAC Test"
+          message: >
+            Manual test triggered. 
+            Current thermostat state: {{ states('climate.your_thermostat') }}
+            Current HVAC Action: {{ state_attr('climate.your_thermostat', 'hvac_action') }}
+            
+      # Test blueprint compatibility
+      - condition: template
+        value_template: "{{ state_attr('climate.your_thermostat', 'hvac_action') is not none }}"
+        
+      - service: persistent_notification.create
+        data:
+          title: "✅ HVAC Compatibility Test"
+          message: >
+            Thermostat state: {{ states('climate.your_thermostat') }}
+            HVAC Action: {{ state_attr('climate.your_thermostat', 'hvac_action') }}
+            
+            {% if state_attr('climate.your_thermostat', 'hvac_action') in ['heating', 'cooling'] %}
+            ✅ Currently active - blueprint would be monitoring!
+            {% elif state_attr('climate.your_thermostat', 'hvac_action') == 'idle' %}
+            ℹ️ System idle - change setpoint to test blueprint trigger
+            {% else %}
+            ⚠️ Unknown hvac_action value - may not be compatible
+            {% endif %}
+
+# Helper entity for manual testing
+input_boolean:
+  test_hvac_trigger:
+    name: "Test HVAC Trigger"
+    icon: mdi:test-tube
+
+# Instructions for use:
+# 1. Replace 'climate.your_thermostat' with your actual thermostat entity ID
+# 2. Create the input_boolean helper above (or via UI)
+# 3. Add these automations to your Home Assistant
+# 4. Test by:
+#    - Changing thermostat setpoint to trigger hvac_action changes
+#    - Toggle the "Test HVAC Trigger" helper to run compatibility check
+# 5. Watch for notifications and check logbook for detailed information
