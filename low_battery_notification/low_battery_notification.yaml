@@ -1,11 +1,13 @@
 blueprint:
   name: Low battery level detection & notification for all battery sensors
-  description: Regularly test all sensors with 'battery' device-class for crossing a certain battery level threshold and if so execute an action.
+  description: >
+    Regularly test all sensors with 'battery' device-class for crossing a certain battery level threshold and if so execute an action.
+    Supports exclusion by entities, devices, areas, and labels for flexible filtering.
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/low_battery_notification/low_battery_notification.yaml
 
-
-  # Blueprint Inputs
+  # === BLUEPRINT INPUTS ===
+  # Configure when and how to check for low battery sensors
   input:
     threshold:
       name: Battery warning level threshold
@@ -25,7 +27,9 @@ blueprint:
       default: '10:00:00'
       selector:
         time: {}
-    # In this segment the user will selected the week days that te automation will be exectuted.
+    
+    # === WEEKDAY SCHEDULE CONFIGURATION ===
+    # Select which days of the week to run the battery check
     monday_enabled:
       name: 'Monday'
       description: 'Run test on Monday'
@@ -69,6 +73,8 @@ blueprint:
       selector:
         boolean:
 
+    # === EXCLUSION CONFIGURATION ===
+    # Define which sensors to exclude from battery monitoring
     exclude:
       name: Excluded Sensors
       description: Battery sensors (e.g. smartphone) to exclude from detection. Entities, devices, areas, and labels are supported!
@@ -76,37 +82,46 @@ blueprint:
       selector:
         target:
 
+    # === NOTIFICATION ACTIONS ===
+    # Define what happens when low battery sensors are detected
     actions:
       name: Actions
       description: Notifications or similar to be run. {{sensors}} is replaced with the names of sensors being low on battery.
       selector:
         action:
 
-
+# === VARIABLES ===
+# Store user inputs as variables for easier reference throughout the automation
 variables:
-  monday_enabled: !input 'monday_enabled'
-  tuesday_enabled: !input 'tuesday_enabled'
-  wednesday_enabled: !input 'wednesday_enabled'
-  thursday_enabled: !input 'thursday_enabled'
-  friday_enabled: !input 'friday_enabled'
-  saturday_enabled: !input 'saturday_enabled'
-  sunday_enabled: !input 'sunday_enabled'
+  # Weekday schedule variables
+  monday_enabled: !input 'monday_enabled'        # Run on Monday?
+  tuesday_enabled: !input 'tuesday_enabled'      # Run on Tuesday?  
+  wednesday_enabled: !input 'wednesday_enabled'  # Run on Wednesday?
+  thursday_enabled: !input 'thursday_enabled'    # Run on Thursday?
+  friday_enabled: !input 'friday_enabled'        # Run on Friday?
+  saturday_enabled: !input 'saturday_enabled'    # Run on Saturday?
+  sunday_enabled: !input 'sunday_enabled'        # Run on Sunday?
 
-  current_day: '{{ now().weekday() | int }}'
+  current_day: '{{ now().weekday() | int }}'     # Current day of week (0=Monday, 6=Sunday)
 
-  threshold: !input 'threshold'
+  # Battery monitoring configuration
+  threshold: !input 'threshold'                  # Battery level threshold for warnings
+  exclude: !input 'exclude'                      # Exclusion input from blueprint
 
-  exclude: !input 'exclude'
-
-
-
+  # === BATTERY SENSOR DETECTION WITH EXCLUSION LOGIC ===
+  # Build a list of low battery sensors, excluding those specified by the user
+  # Exclusion supports entities, devices, areas, and labels for maximum flexibility
   sensors: >-
     {% set result = namespace(sensors=[], excludedEntities=[]) %}
 
+    {# === ENTITY EXCLUSION === #}
+    {# Exclude specific entities directly by entity_id #}
     {% if exclude.entity_id is defined %} 
         {% set result.excludedEntities = result.excludedEntities + ([exclude.entity_id] if exclude.entity_id is string else exclude.entity_id) %}
     {% endif %}
 
+    {# === DEVICE EXCLUSION === #}
+    {# Exclude all entities belonging to specified devices #}
     {% if exclude.device_id is defined %}
       {% if exclude.device_id is not list %}
         {% set device_id_list = [exclude.device_id] %}
@@ -118,6 +133,8 @@ variables:
       {% endfor %}
     {% endif %}
 
+    {# === LABEL EXCLUSION === #}
+    {# Exclude entities, areas, and devices associated with specified labels #}
     {% if exclude.label_id is defined %}
       {% if exclude.label_id is not list %}
         {% set label_id_list = [exclude.label_id] %}
@@ -138,6 +155,8 @@ variables:
       {% endfor %}
     {% endif %}
 
+    {# === AREA EXCLUSION === #}
+    {# Exclude all entities and devices in specified areas #}
     {% if exclude.area_id is defined %}
       {% if exclude.area_id is not list %}
         {% set area_id_list = [exclude.area_id] %}
@@ -152,28 +171,32 @@ variables:
       {% endfor %}
     {% endif %}
 
+    {# === BATTERY SENSOR DETECTION === #}
+    {# Find all battery sensors below threshold, excluding those in exclusion list #}
     {% for state in states.sensor | selectattr('attributes.device_class', 'search', 'battery') %}
       {% if 0 <= state.state | int(-1) < threshold | int and not state.entity_id in result.excludedEntities %}
         {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
       {% endif %}
     {% endfor %}
+    {# Also check binary battery sensors that are 'on' (indicating low battery) #}
     {% for state in states.binary_sensor | selectattr('attributes.device_class', 'search', 'battery') | selectattr('state', '==', 'on') %}
       {% if not state.entity_id in result.excludedEntities %}
         {% set result.sensors = result.sensors + [state.name] %}
       {% endif %}
     {% endfor %}
+    {# Format output for notification template #}
     {"- "}}{{result.sensors|join('\n- ')}}
 
-
-# Triggers
+# === AUTOMATION TRIGGERS ===
+# Run at the specified time each day
 trigger:
   - platform: time
     at: !input 'time'
 
-
-# Conditions used to determine if the automation should run for the specific trigger event
+# === AUTOMATION CONDITIONS ===
+# Only run if it's a selected weekday and there are low battery sensors
 condition:
-# Check if the automation is supposed to be executed during that specific weekday
+  # Check if automation should run on the current weekday
   - condition: template
     value_template: >-
         {{ 
@@ -186,17 +209,18 @@ condition:
           (current_day == 6 and sunday_enabled)
         }}
 
-
-  # Check if the sensors list is not empty
+  # Only proceed if there are actually low battery sensors to report
   - condition: template
     value_template: >-
         {{ sensors != "- "}}
 
-
-# Actions
+# === AUTOMATION ACTIONS ===
+# Execute user-defined actions when low battery sensors are detected
 action:
   - choose: []
     default: !input 'actions'
   
+# === AUTOMATION CONFIGURATION ===
+# Prevent multiple instances and handle overflow gracefully
 mode: single
 max_exceeded: silent
