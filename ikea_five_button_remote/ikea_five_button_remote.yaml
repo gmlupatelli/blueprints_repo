@@ -1,5 +1,5 @@
 blueprint:
-  name: ZHA - IKEA five button remote for lights v2
+  name: ZHA - IKEA five button remote for lights
   description: 'Control lights with an IKEA five button remote (the round ones).
 
     The middle "on" button, toggle the lights on/off to the last set brightness
