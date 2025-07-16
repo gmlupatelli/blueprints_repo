@@ -71,12 +71,10 @@ blueprint:
 
     exclude:
       name: Excluded Sensors
-      description: Battery sensors (e.g. smartphone) to exclude from detection. Only entities are supported, areas and devices must be expanded!
+      description: Battery sensors (e.g. smartphone) to exclude from detection. Entities, devices, areas, and labels are supported!
       default: {}
       selector:
         target:
-          entity:
-            device_class: battery
 
     actions:
       name: Actions
@@ -100,29 +98,71 @@ variables:
 
   exclude: !input 'exclude'
 
+
+
   sensors: >-
-    {% set result = namespace(sensors=[]) %}
-    {% for state in states.sensor | selectattr('attributes.device_class', 'search', 'battery') %}
-      {% if exclude.entity_id is defined %}
-        {% if 0 <= state.state | int(-1) < threshold | int and not state.entity_id in exclude.entity_id %}
-          {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
-        {% endif %}
+    {% set result = namespace(sensors=[], excludedEntities=[]) %}
+
+    {% if exclude.entity_id is defined %} 
+        {% set result.excludedEntities = result.excludedEntities + ([exclude.entity_id] if exclude.entity_id is string else exclude.entity_id) %}
+    {% endif %}
+
+    {% if exclude.device_id is defined %}
+      {% if exclude.device_id is not list %}
+        {% set device_id_list = [exclude.device_id] %}
       {% else %}
-        {% if 0 <= state.state | int(-1) < threshold | int %}
-          {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
-        {% endif %}
+        {% set device_id_list = exclude.device_id %}
+      {% endif %}
+      {% for device_id in device_id_list %}
+        {% set result.excludedEntities = result.excludedEntities + device_entities(device_id) %}
+      {% endfor %}
+    {% endif %}
+
+    {% if exclude.label_id is defined %}
+      {% if exclude.label_id is not list %}
+        {% set label_id_list = [exclude.label_id] %}
+      {% else %}
+        {% set label_id_list = exclude.label_id %}
+      {% endif %}
+      {% for label_id in label_id_list %}
+        {% set result.excludedEntities = result.excludedEntities + label_entities(label_id) %}
+        {% for area in label_areas(label_id) %}
+          {% set result.excludedEntities = result.excludedEntities + area_entities(area) %}
+          {% for device in area_devices(area) %}
+              {% set result.excludedEntities = result.excludedEntities + device_entities(device) %}
+          {% endfor %}
+        {% endfor %}
+        {% for device in label_devices(label_id) %}
+            {% set result.excludedEntities = result.excludedEntities + device_entities(device) %}
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+
+    {% if exclude.area_id is defined %}
+      {% if exclude.area_id is not list %}
+        {% set area_id_list = [exclude.area_id] %}
+      {% else %}
+        {% set area_id_list = exclude.area_id %}
+      {% endif %}
+      {% for area_id in area_id_list %}
+        {% set result.excludedEntities = result.excludedEntities + area_entities(area_id) %}
+        {% for device in area_devices(area_id) %}
+            {% set result.excludedEntities = result.excludedEntities + device_entities(device) %}
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+
+    {% for state in states.sensor | selectattr('attributes.device_class', 'search', 'battery') %}
+      {% if 0 <= state.state | int(-1) < threshold | int and not state.entity_id in result.excludedEntities %}
+        {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
       {% endif %}
     {% endfor %}
     {% for state in states.binary_sensor | selectattr('attributes.device_class', 'search', 'battery') | selectattr('state', '==', 'on') %}
-      {% if exclude.entity_id is defined %}
-        {% if not state.entity_id in exclude.entity_id %}
-          {% set result.sensors = result.sensors + [state.name] %}
-        {% endif %}
-      {% else %}
+      {% if not state.entity_id in result.excludedEntities %}
         {% set result.sensors = result.sensors + [state.name] %}
       {% endif %}
     {% endfor %}
-    {{"⤵ \n- "}}{{result.sensors|join('\n- ')}}
+    {"- "}}{{result.sensors|join('\n- ')}}
 
 
 # Triggers
@@ -150,7 +190,7 @@ condition:
   # Check if the sensors list is not empty
   - condition: template
     value_template: >-
-        {{ sensors != "⤵ \n-"}}
+        {{ sensors != "- "}}
 
 
 # Actions
