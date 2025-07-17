@@ -34,11 +34,11 @@ blueprint:
     minimum_runtime:
       name: Minimum Runtime Before Check
       description: How long the system should run before checking effectiveness (in minutes)
-      default: 20
+      default: 60
       selector:
         number:
           min: 10
-          max: 60
+          max: 120
           unit_of_measurement: minutes
 
     cooling_temperature_tolerance:
@@ -238,14 +238,14 @@ action:
   - delay:
       minutes: "{{ min_runtime }}"
 
-  # === PHASE 3: VERIFY SYSTEM IS STILL RUNNING ===
-  # Only proceed if the thermostat is still in the same hvac_action and available
-  # This prevents false failures if the system legitimately turned off
+  # === PHASE 3: VERIFY SYSTEM IS STILL AVAILABLE ===
+  # Only proceed if the thermostat is available and not turned off
+  # This prevents false failures if the system was manually disabled
   - condition: template
     value_template: >
-      {% set current_hvac_action = state_attr(thermostat_entity, 'hvac_action') %}
+      {% set thermostat_state = states(thermostat_entity) %}
       {% set available = not is_state(thermostat_entity, 'unavailable') %}
-      {{ available and current_hvac_action == hvac_action }}
+      {{ available and thermostat_state != 'off' }}
 
   # === PHASE 4: CALCULATE TEMPERATURE CHANGE ===
   # Compare current temperature to starting temperature
@@ -253,18 +253,7 @@ action:
       new_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float }}"      # Temperature after runtime
       start_temp: "{{ states('input_number.hvac_monitor_start_temp') | float }}"          # Temperature when started
       temp_change: "{{ new_temp - start_temp }}"                                          # Total change (positive = warmer, negative = cooler)
-      current_setpoint: "{{ state_attr(thermostat_entity, 'temperature') | float }}"     # Current thermostat setpoint
-
-  # Clear any previous deadband warnings since we completed a full cycle
-  - service: persistent_notification.dismiss
-    data:
-      notification_id: "hvac_monitor_cooling_deadband_warning"
-    continue_on_error: true
-
-  - service: persistent_notification.dismiss
-    data:
-      notification_id: "hvac_monitor_heating_deadband_warning"
-    continue_on_error: true
+      current_setpoint: "{{ state_attr(thermostat_entity, 'temperature') | float }}"      # Current thermostat setpoint
 
   # === PHASE 5: EVALUATE PERFORMANCE AND TAKE ACTION ===
   - choose:
@@ -383,6 +372,13 @@ action:
         - service: counter.reset
           target:
             entity_id: counter.hvac_cooling_failures
+        
+        # Clear cooling deadband warning only if cycle was successful
+        # This indicates the warning was either incorrect or the user has addressed it
+        - service: persistent_notification.dismiss
+          data:
+            notification_id: "hvac_monitor_cooling_deadband_warning"
+          continue_on_error: true
 
     # *** HEATING SUCCESS DETECTION ***
     # Reset failure counter when heating works properly
@@ -405,6 +401,13 @@ action:
         - service: counter.reset
           target:
             entity_id: counter.hvac_heating_failures
+        
+        # Clear heating deadband warning only if cycle was successful
+        # This indicates the warning was either incorrect or the user has addressed it
+        - service: persistent_notification.dismiss
+          data:
+            notification_id: "hvac_monitor_heating_deadband_warning"
+          continue_on_error: true
 
 # Ensure only one instance of this automation runs at a time
 # Prevents overlapping monitoring cycles that could interfere with each other
