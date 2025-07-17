@@ -1,0 +1,585 @@
+blueprint:
+  name: Xfinity Keypad and Alarmo Synchronization
+  description: >-
+    Integrates a Xfinity xhk1-ue ZigBee Wireless Keypad from Comcast with the 
+    Alarmo HACS addon. This blueprint allows you to arm and disarm Alarmo using 
+    the keypad with Alarmo passwords (not the ZHA keypad password), and keeps 
+    the keypad display synchronized with Alarmo's state.
+    
+    KEY FEATURES:
+    • Use Alarmo codes instead of ZHA keypad codes
+    • Bidirectional synchronization between keypad and Alarmo
+    • Support for all Alarmo arm modes (Home, Away, Night, Vacation, Custom)
+    • Automatic keypad state updates during arming delays
+    • Error handling for invalid codes and failed arming attempts
+    
+    REQUIREMENTS:
+    • Xfinity xhk1-ue ZigBee keypad paired with ZHA
+    • Alarmo HACS integration installed and configured
+    • MQTT broker configured (for Alarmo communication)
+    • Both keypad and Alarmo entities available in Home Assistant
+  domain: automation
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/xfinity_keypad_and_alarmo_syncronization/xfinity_keypad_and_alarmo_syncronization.yaml
+
+  input:
+    keypad_device_ieee:
+      name: Xfinity Keypad Device IEEE Address
+      description: >
+        The IEEE address of your Xfinity keypad device as shown in ZHA.
+        
+        ℹ️ HOW TO FIND: Go to Settings > Devices & Services > ZHA > Your Keypad Device.
+        The IEEE address should look like "00:0d:6f:00:0f:c5:60:bb".
+        
+        ⚠️ IMPORTANT: This must match exactly - copy and paste from ZHA device info.
+      selector:
+        text:
+      default: ""
+    
+    alarmo_entity:
+      name: Alarmo Control Panel Entity
+      description: >
+        The main Alarmo alarm control panel entity.
+        
+        📍 TYPICAL NAME: Usually "alarm_control_panel.alarmo" or similar.
+        This should be the master Alarmo entity, not an area-specific one.
+      selector:
+        entity:
+          domain: alarm_control_panel
+    
+    keypad_entity:
+      name: Keypad Control Panel Entity
+      description: >
+        The keypad's alarm control panel entity created by ZHA.
+        
+        📍 LOCATION: This entity is automatically created when you pair the Xfinity 
+        keypad with ZHA. Look for entities containing your keypad's name.
+      selector:
+        entity:
+          domain: alarm_control_panel
+    
+    alarmo_state_topic:
+      name: Alarmo MQTT State Topic
+      description: >
+        MQTT topic where Alarmo publishes state changes.
+        
+        ⚙️ DEFAULT: "alarmo/state" (works for most setups)
+        Only change if you've customized Alarmo's MQTT configuration.
+      selector:
+        text:
+      default: "alarmo/state"
+    
+    alarmo_event_topic:
+      name: Alarmo MQTT Event Topic
+      description: >
+        MQTT topic where Alarmo publishes events (errors, failures, etc.).
+        
+        ⚙️ DEFAULT: "alarmo/event" (works for most setups)
+        Only change if you've customized Alarmo's MQTT configuration.
+      selector:
+        text:
+      default: "alarmo/event"
+    
+    alarmo_command_topic:
+      name: Alarmo MQTT Command Topic
+      description: >
+        MQTT topic for sending commands to Alarmo.
+        
+        ⚙️ DEFAULT: "alarmo/command" (works for most setups)
+        Only change if you've customized Alarmo's MQTT configuration.
+      selector:
+        text:
+      default: "alarmo/command"
+    
+    keypad_code:
+      name: Keypad Operations Code
+      description: >
+        Default code used for keypad synchronization operations.
+        
+        ⚠️ IMPORTANT: This should be a simple code like "00000". This is NOT your 
+        security code - it's only used internally to sync the keypad display state.
+        Your actual Alarmo security codes are used for arming/disarming.
+      selector:
+        text:
+      default: "00000"
+    
+    # === USER ACTION CUSTOMIZATION ===
+    # Allow users to add custom actions for each alarm state change
+    
+    additional_disarm_actions:
+      name: Additional Disarm Actions
+      description: >
+        Extra actions to run when the alarm is disarmed (from keypad or Home Assistant).
+        
+        💡 EXAMPLES: Turn on lights, send notifications, unlock doors, etc.
+      selector:
+        action:
+      default: []
+    
+    additional_arm_home_actions:
+      name: Additional Arm Home Actions
+      description: >
+        Extra actions to run when the alarm is armed in Home mode.
+        
+        💡 EXAMPLES: Turn off unnecessary lights, lock doors, send notifications, etc.
+      selector:
+        action:
+      default: []
+    
+    additional_arm_away_actions:
+      name: Additional Arm Away Actions
+      description: >
+        Extra actions to run when the alarm is armed in Away mode.
+        
+        💡 EXAMPLES: Turn off all lights, set thermostat to away, lock all doors, etc.
+      selector:
+        action:
+      default: []
+    
+    additional_arm_night_actions:
+      name: Additional Arm Night Actions
+      description: >
+        Extra actions to run when the alarm is armed in Night mode.
+        
+        💡 EXAMPLES: Turn off lights except night lights, lock external doors, etc.
+      selector:
+        action:
+      default: []
+    
+    additional_arm_vacation_actions:
+      name: Additional Arm Vacation Actions
+      description: >
+        Extra actions to run when the alarm is armed in Vacation mode.
+        
+        💡 EXAMPLES: Set vacation lighting scenes, adjust thermostat, etc.
+      selector:
+        action:
+      default: []
+    
+    additional_arm_custom_actions:
+      name: Additional Arm Custom Actions  
+      description: >
+        Extra actions to run when the alarm is armed in Custom Bypass mode.
+        
+        💡 EXAMPLES: Custom security configurations, selective device control, etc.
+      selector:
+        action:
+      default: []
+
+# === AUTOMATION TRIGGERS ===
+# Monitor both keypad button presses and Alarmo state changes for full synchronization
+
+triggers:
+  # === KEYPAD BUTTON PRESS EVENTS ===
+  # Capture ZHA events when user presses buttons on the Xfinity keypad
+  
+  - event_type: zha_event
+    event_data:
+      device_ieee: !input keypad_device_ieee
+      args:
+        arm_mode_description: Disarm
+    id: disarm
+    trigger: event
+    
+  - event_type: zha_event
+    event_data:
+      device_ieee: !input keypad_device_ieee
+      args:
+        arm_mode_description: Arm_Day_Home_Only
+    id: arm_home
+    trigger: event
+    
+  - event_type: zha_event
+    event_data:
+      device_ieee: !input keypad_device_ieee
+      args:
+        arm_mode_description: Arm_All_Zones
+    id: arm_away
+    trigger: event
+    
+  - event_type: zha_event
+    event_data:
+      device_ieee: !input keypad_device_ieee
+      args:
+        arm_mode_description: Arm_Night_Sleep_Only
+    id: arm_night
+    trigger: event
+  
+  # === ALARMO MQTT STATE CHANGES ===
+  # Monitor Alarmo's MQTT state broadcasts for synchronization
+  
+  - topic: !input alarmo_state_topic
+    id: alarmo_state_disarmed
+    payload: disarmed
+    trigger: mqtt
+    
+  - topic: !input alarmo_state_topic
+    id: alarmo_state_armed_home
+    payload: armed_home
+    trigger: mqtt
+    
+  - topic: !input alarmo_state_topic
+    id: alarmo_state_armed_away
+    payload: armed_away
+    trigger: mqtt
+    
+  - topic: !input alarmo_state_topic
+    id: alarmo_state_armed_night
+    payload: armed_night
+    trigger: mqtt
+    
+  - topic: !input alarmo_state_topic
+    id: alarmo_state_armed_vacation
+    payload: armed_vacation
+    trigger: mqtt
+    
+  - topic: !input alarmo_state_topic
+    id: alarmo_state_armed_custom_bypass
+    payload: armed_custom_bypass
+    trigger: mqtt
+    
+  - topic: !input alarmo_state_topic
+    id: alarmo_state_armed_arming
+    payload: arming
+    trigger: mqtt
+  
+  # === ALARMO MQTT EVENT MONITORING ===
+  # Monitor Alarmo events for error handling and status updates
+  
+  - topic: !input alarmo_event_topic
+    id: alarmo_state_invalid_code
+    payload: INVALID_CODE_PROVIDED
+    value_template: "{{ value_json.event }}"
+    trigger: mqtt
+    
+  - topic: !input alarmo_event_topic
+    id: alarmo_failed_to_arm
+    payload: FAILED_TO_ARM
+    value_template: "{{ value_json.event }}"
+    trigger: mqtt
+  
+  # === ALARMO ENTITY STATE CHANGES ===
+  # Monitor the Alarmo entity directly for Home Assistant initiated changes
+  
+  - entity_id: !input alarmo_entity
+    id: alarmo_master_disarmed
+    to: disarmed
+    trigger: state
+    
+  - entity_id: !input alarmo_entity
+    id: alarmo_master_armed_home
+    to: armed_home
+    trigger: state
+    
+  - entity_id: !input alarmo_entity
+    id: alarmo_master_armed_away
+    to: armed_away
+    trigger: state
+    
+  - entity_id: !input alarmo_entity
+    id: alarmo_master_armed_night
+    to: armed_night
+    trigger: state
+    
+  - entity_id: !input alarmo_entity
+    id: alarmo_master_armed_vacation
+    to: armed_vacation
+    trigger: state
+    
+  - entity_id: !input alarmo_entity
+    id: alarmo_master_armed_custom_bypass
+    to: armed_custom_bypass
+    trigger: state
+    
+  - entity_id: !input alarmo_entity
+    id: alarmo_master_arming
+    to: arming
+    trigger: state
+
+conditions: []
+
+actions:
+  # === KEYPAD TO ALARMO COMMUNICATION ===
+  # Handle keypad button presses by sending appropriate MQTT commands to Alarmo
+  
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: disarm
+        sequence:
+          # Send disarm command to Alarmo via MQTT using the code entered on keypad
+          - data:
+              topic: !input alarmo_command_topic
+              payload: >-
+                { "command": "DISARM", "code": "{{ trigger.event.data.args.code }}" }
+            action: mqtt.publish
+            
+      - conditions:
+          - condition: trigger
+            id: arm_home
+        sequence:
+          # Send arm home command to Alarmo via MQTT using the code entered on keypad
+          - data:
+              topic: !input alarmo_command_topic
+              payload: >-
+                { "command": "ARM_HOME", "code": "{{ trigger.event.data.args.code }}" }
+            action: mqtt.publish
+            
+      - conditions:
+          - condition: trigger
+            id: arm_away
+        sequence:
+          # Send arm away command to Alarmo via MQTT using the code entered on keypad
+          - data:
+              topic: !input alarmo_command_topic
+              payload: >-
+                { "command": "ARM_AWAY", "code": "{{ trigger.event.data.args.code }}" }
+            action: mqtt.publish
+            
+      - conditions:
+          - condition: trigger
+            id: arm_night
+        sequence:
+          # Send arm night command to Alarmo via MQTT using the code entered on keypad
+          - data:
+              topic: !input alarmo_command_topic
+              payload: >-
+                { "command": "ARM_NIGHT", "code": "{{ trigger.event.data.args.code }}" }
+            action: mqtt.publish
+    default: []
+  
+  # === ALARMO TO KEYPAD SYNCHRONIZATION ===
+  # Handle Alarmo state changes by updating keypad display and running user actions
+  
+  - choose:
+      # === DISARMED STATE SYNCHRONIZATION ===
+      - conditions:
+          - condition: trigger
+            id:
+              - alarmo_state_disarmed
+              - alarmo_master_disarmed
+        sequence:
+          # Update keypad display to show disarmed state (only if not already disarmed)
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: !input keypad_entity
+                state: disarmed
+          - action: alarm_control_panel.alarm_disarm
+            target:
+              entity_id: !input keypad_entity
+            data:
+              code: !input keypad_code
+          # Execute any additional user-defined actions for disarm
+          - choose: []
+            default: !input additional_disarm_actions
+      
+      # === ARMED HOME STATE SYNCHRONIZATION ===
+      - conditions:
+          - condition: trigger
+            id:
+              - alarmo_state_armed_home
+              - alarmo_master_armed_home
+        sequence:
+          # Update keypad display to show armed home state
+          - action: alarm_control_panel.alarm_arm_home
+            target:
+              entity_id: !input keypad_entity
+            data:
+              code: !input keypad_code
+          # Execute any additional user-defined actions for arm home
+          - choose: []
+            default: !input additional_arm_home_actions
+      
+      # === ARMED AWAY STATE SYNCHRONIZATION ===
+      - conditions:
+          - condition: trigger
+            id:
+              - alarmo_state_armed_away
+              - alarmo_master_armed_away
+        sequence:
+          # Update keypad display to show armed away state
+          - action: alarm_control_panel.alarm_arm_away
+            target:
+              entity_id: !input keypad_entity
+            data:
+              code: !input keypad_code
+          # Execute any additional user-defined actions for arm away
+          - choose: []
+            default: !input additional_arm_away_actions
+      
+      # === ARMED NIGHT STATE SYNCHRONIZATION ===
+      - conditions:
+          - condition: trigger
+            id:
+              - alarmo_state_armed_night
+              - alarmo_master_armed_night
+        sequence:
+          # Update keypad display to show armed night state
+          - action: alarm_control_panel.alarm_arm_night
+            target:
+              entity_id: !input keypad_entity
+            data:
+              code: !input keypad_code
+          # Execute any additional user-defined actions for arm night
+          - choose: []
+            default: !input additional_arm_night_actions
+      
+      # === ARMED VACATION STATE SYNCHRONIZATION ===
+      - conditions:
+          - condition: trigger
+            id:
+              - alarmo_state_armed_vacation
+              - alarmo_master_armed_vacation
+        sequence:
+          # Update keypad display (vacation mode maps to away since most keypads don't support it)
+          - action: alarm_control_panel.alarm_arm_away
+            target:
+              entity_id: !input keypad_entity
+            data:
+              code: !input keypad_code
+          # Execute any additional user-defined actions for arm vacation
+          - choose: []
+            default: !input additional_arm_vacation_actions
+      
+      # === ARMED CUSTOM BYPASS STATE SYNCHRONIZATION ===
+      - conditions:
+          - condition: trigger
+            id:
+              - alarmo_state_armed_custom_bypass
+              - alarmo_master_armed_custom_bypass
+        sequence:
+          # Update keypad display (custom bypass maps to away since most keypads don't support it)
+          - action: alarm_control_panel.alarm_arm_away
+            target:
+              entity_id: !input keypad_entity
+            data:
+              code: !input keypad_code
+          # Execute any additional user-defined actions for arm custom
+          - choose: []
+            default: !input additional_arm_custom_actions
+      
+      # === ARMING STATE SYNCHRONIZATION ===
+      # Handle the intermediate arming state with delay countdown
+      - conditions:
+          - condition: trigger
+            id:
+              - alarmo_state_armed_arming
+              - alarmo_master_arming
+        sequence:
+          # Update keypad to show appropriate arming state based on target mode
+          # Check Alarmo's arm_mode attribute to determine which mode it's arming to
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'away' }}"
+                sequence:
+                  - action: alarm_control_panel.alarm_arm_away
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+              - conditions:
+                  - condition: template
+                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'home' }}"
+                sequence:
+                  - action: alarm_control_panel.alarm_arm_home
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+              - conditions:
+                  - condition: template
+                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'night' }}"
+                sequence:
+                  - action: alarm_control_panel.alarm_arm_night
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+              - conditions:
+                  - condition: template
+                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'vacation' }}"
+                sequence:
+                  - action: alarm_control_panel.alarm_arm_away
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+              - conditions:
+                  - condition: template
+                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'custom_bypass' }}"
+                sequence:
+                  - action: alarm_control_panel.alarm_arm_away
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+            default: []
+      
+      # === ERROR HANDLING: INVALID CODE ===
+      # When an invalid code is entered, sync keypad back to current Alarmo state
+      - conditions:
+          - condition: trigger
+            id: alarmo_state_invalid_code
+        sequence:
+          # Determine current Alarmo state and sync keypad accordingly
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: !input alarmo_entity
+                    state: disarmed
+                sequence:
+                  - action: alarm_control_panel.alarm_disarm
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+              - conditions:
+                  - condition: state
+                    entity_id: !input alarmo_entity
+                    state: armed_home
+                sequence:
+                  - action: alarm_control_panel.alarm_arm_home
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+              - conditions:
+                  - condition: state
+                    entity_id: !input alarmo_entity
+                    state: armed_away
+                sequence:
+                  - action: alarm_control_panel.alarm_arm_away
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+              - conditions:
+                  - condition: state
+                    entity_id: !input alarmo_entity
+                    state: armed_night
+                sequence:
+                  - action: alarm_control_panel.alarm_arm_night
+                    target:
+                      entity_id: !input keypad_entity
+                    data:
+                      code: !input keypad_code
+            default: []
+      
+      # === ERROR HANDLING: FAILED TO ARM ===
+      # When arming fails (e.g., door/window open), ensure keypad shows disarmed state
+      - conditions:
+          - condition: trigger
+            id: alarmo_failed_to_arm
+        sequence:
+          # Reset keypad to disarmed state since arming failed
+          - action: alarm_control_panel.alarm_disarm
+            target:
+              entity_id: !input keypad_entity
+            data:
+              code: !input keypad_code
+    default: []
+
+# === AUTOMATION EXECUTION MODE ===
+# Use single mode to prevent overlapping executions that could cause conflicts
+mode: single
