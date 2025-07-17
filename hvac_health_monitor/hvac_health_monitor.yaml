@@ -144,12 +144,12 @@ action:
   # === PHASE 0: VALIDATE TRIGGER ===
   # Ensure this automation was triggered by a proper hvac_action change, not manually
   - condition: template
-    value_template: "{{ trigger.to_state is defined and trigger.to_state.state in ['heating', 'cooling'] }}"
+    value_template: "{{ trigger.to_state is defined and trigger.to_state.attributes.hvac_action in ['heating', 'cooling'] }}"
 
   # === PHASE 1: CAPTURE INITIAL CONDITIONS ===
   # Record the starting conditions when HVAC begins operating
   - variables:
-      hvac_action: "{{ trigger.to_state.state }}"                              # Store which hvac_action triggered (heating/cooling)
+      hvac_action: "{{ trigger.to_state.attributes.hvac_action }}"                        # Store which hvac_action triggered (heating/cooling)
       current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float }}"  # Current room temperature
       target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float }}"           # Thermostat setpoint
 
