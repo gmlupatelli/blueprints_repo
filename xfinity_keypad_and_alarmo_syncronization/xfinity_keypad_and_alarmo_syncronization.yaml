@@ -4,20 +4,8 @@ blueprint:
     Integrates a Xfinity xhk1-ue ZigBee Wireless Keypad from Comcast with the 
     Alarmo HACS addon. This blueprint allows you to arm and disarm Alarmo using 
     the keypad with Alarmo passwords (not the ZHA keypad password), and keeps 
-    the keypad display synchronized with Alarmo's state.
-    
-    KEY FEATURES:
-    • Use Alarmo codes instead of ZHA keypad codes
-    • Bidirectional synchronization between keypad and Alarmo
-    • Support for all Alarmo arm modes (Home, Away, Night, Vacation, Custom)
-    • Automatic keypad state updates during arming delays
-    • Error handling for invalid codes and failed arming attempts
-    
-    REQUIREMENTS:
-    • Xfinity xhk1-ue ZigBee keypad paired with ZHA
-    • Alarmo HACS integration installed and configured
-    • MQTT broker configured (for Alarmo communication)
-    • Both keypad and Alarmo entities available in Home Assistant
+    the keypad display synchronized with Alarmo's state. 
+    REQUIREMENTS:Xfinity xhk1-ue ZigBee keypad paired with ZHA, alarmo HACS integration installed and configured, MQTT broker configured.
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/xfinity_keypad_and_alarmo_syncronization/xfinity_keypad_and_alarmo_syncronization.yaml
 
@@ -26,11 +14,8 @@ blueprint:
       name: Xfinity Keypad Device IEEE Address
       description: >
         The IEEE address of your Xfinity keypad device as shown in ZHA.
-        
-        ℹ️ HOW TO FIND: Go to Settings > Devices & Services > ZHA > Your Keypad Device.
+        available in Settings > Devices & Services > ZHA > Your Keypad Device.
         The IEEE address should look like "00:0d:6f:00:0f:c5:60:bb".
-        
-        ⚠️ IMPORTANT: This must match exactly - copy and paste from ZHA device info.
       selector:
         text:
       default: ""
@@ -39,8 +24,6 @@ blueprint:
       name: Alarmo Control Panel Entity
       description: >
         The main Alarmo alarm control panel entity.
-        
-        📍 TYPICAL NAME: Usually "alarm_control_panel.alarmo" or similar.
         This should be the master Alarmo entity, not an area-specific one.
       selector:
         entity:
@@ -50,9 +33,6 @@ blueprint:
       name: Keypad Control Panel Entity
       description: >
         The keypad's alarm control panel entity created by ZHA.
-        
-        📍 LOCATION: This entity is automatically created when you pair the Xfinity 
-        keypad with ZHA. Look for entities containing your keypad's name.
       selector:
         entity:
           domain: alarm_control_panel
@@ -61,8 +41,6 @@ blueprint:
       name: Alarmo MQTT State Topic
       description: >
         MQTT topic where Alarmo publishes state changes.
-        
-        ⚙️ DEFAULT: "alarmo/state" (works for most setups)
         Only change if you've customized Alarmo's MQTT configuration.
       selector:
         text:
@@ -72,8 +50,6 @@ blueprint:
       name: Alarmo MQTT Event Topic
       description: >
         MQTT topic where Alarmo publishes events (errors, failures, etc.).
-        
-        ⚙️ DEFAULT: "alarmo/event" (works for most setups)
         Only change if you've customized Alarmo's MQTT configuration.
       selector:
         text:
@@ -83,8 +59,6 @@ blueprint:
       name: Alarmo MQTT Command Topic
       description: >
         MQTT topic for sending commands to Alarmo.
-        
-        ⚙️ DEFAULT: "alarmo/command" (works for most setups)
         Only change if you've customized Alarmo's MQTT configuration.
       selector:
         text:
@@ -93,10 +67,7 @@ blueprint:
     keypad_code:
       name: Keypad Operations Code
       description: >
-        Default code used for keypad synchronization operations.
-        
-        ⚠️ IMPORTANT: This should be a simple code like "00000". This is NOT your 
-        security code - it's only used internally to sync the keypad display state.
+        Default code used for keypad synchronization operations in ZHA configuration.
         Your actual Alarmo security codes are used for arming/disarming.
       selector:
         text:
@@ -109,8 +80,6 @@ blueprint:
       name: Additional Disarm Actions
       description: >
         Extra actions to run when the alarm is disarmed (from keypad or Home Assistant).
-        
-        💡 EXAMPLES: Turn on lights, send notifications, unlock doors, etc.
       selector:
         action:
       default: []
@@ -119,8 +88,6 @@ blueprint:
       name: Additional Arm Home Actions
       description: >
         Extra actions to run when the alarm is armed in Home mode.
-        
-        💡 EXAMPLES: Turn off unnecessary lights, lock doors, send notifications, etc.
       selector:
         action:
       default: []
@@ -129,8 +96,6 @@ blueprint:
       name: Additional Arm Away Actions
       description: >
         Extra actions to run when the alarm is armed in Away mode.
-        
-        💡 EXAMPLES: Turn off all lights, set thermostat to away, lock all doors, etc.
       selector:
         action:
       default: []
@@ -139,8 +104,6 @@ blueprint:
       name: Additional Arm Night Actions
       description: >
         Extra actions to run when the alarm is armed in Night mode.
-        
-        💡 EXAMPLES: Turn off lights except night lights, lock external doors, etc.
       selector:
         action:
       default: []
@@ -149,8 +112,6 @@ blueprint:
       name: Additional Arm Vacation Actions
       description: >
         Extra actions to run when the alarm is armed in Vacation mode.
-        
-        💡 EXAMPLES: Set vacation lighting scenes, adjust thermostat, etc.
       selector:
         action:
       default: []
@@ -159,8 +120,6 @@ blueprint:
       name: Additional Arm Custom Actions  
       description: >
         Extra actions to run when the alarm is armed in Custom Bypass mode.
-        
-        💡 EXAMPLES: Custom security configurations, selective device control, etc.
       selector:
         action:
       default: []
