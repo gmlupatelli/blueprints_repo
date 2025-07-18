@@ -5,7 +5,7 @@ blueprint:
     Alarmo HACS addon. This blueprint allows you to arm and disarm Alarmo using 
     the keypad with Alarmo passwords (not the ZHA keypad password), and keeps 
     the keypad display synchronized with Alarmo's state. 
-    REQUIREMENTS:Xfinity xhk1-ue ZigBee keypad paired with ZHA, alarmo HACS integration installed and configured, MQTT broker configured.
+    REQUIREMENTS: Xfinity xhk1-ue ZigBee keypad paired with ZHA, alarmo HACS integration installed and configured, MQTT broker configured.
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/xfinity_keypad_and_alarmo_syncronization/xfinity_keypad_and_alarmo_syncronization.yaml
 
