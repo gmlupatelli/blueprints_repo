@@ -156,12 +156,15 @@ variables:
       {% endfor %}
     {% endif %}
 
+    {# === UNAVAILABLE SENSOR DETECTION === #}
+    {# Find all unavailable sensors, excluding those in exclusion list #}
     {% for state in states | selectattr('state', 'eq', 'unavailable') %}
         {% if state.state == 'unavailable' and not state.entity_id in result.excludedEntities and (not device_id(state.entity_id) or not device_attr(device_id(state.entity_id), 'disabled_by')) %}
           {% set result.includedEntities = result.includedEntities + [state.name] %}
         {% endif %}
     {% endfor %}
 
+    {# Format output for notification template #}
     {{"- "}}{{result.includedEntities|join('\n- ')}}
 
 # === AUTOMATION TRIGGERS ===
