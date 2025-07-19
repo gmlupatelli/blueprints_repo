@@ -163,43 +163,7 @@ triggers:
     id: arm_night
     trigger: event
   
-  # === ALARMO MQTT STATE CHANGES ===
-  # Monitor Alarmo's MQTT state broadcasts for synchronization
-  
-  - topic: !input alarmo_state_topic
-    id: alarmo_state_disarmed
-    payload: disarmed
-    trigger: mqtt
-    
-  - topic: !input alarmo_state_topic
-    id: alarmo_state_armed_home
-    payload: armed_home
-    trigger: mqtt
-    
-  - topic: !input alarmo_state_topic
-    id: alarmo_state_armed_away
-    payload: armed_away
-    trigger: mqtt
-    
-  - topic: !input alarmo_state_topic
-    id: alarmo_state_armed_night
-    payload: armed_night
-    trigger: mqtt
-    
-  - topic: !input alarmo_state_topic
-    id: alarmo_state_armed_vacation
-    payload: armed_vacation
-    trigger: mqtt
-    
-  - topic: !input alarmo_state_topic
-    id: alarmo_state_armed_custom_bypass
-    payload: armed_custom_bypass
-    trigger: mqtt
-    
-  - topic: !input alarmo_state_topic
-    id: alarmo_state_armed_arming
-    payload: arming
-    trigger: mqtt
+
   
   # === ALARMO MQTT EVENT MONITORING ===
   # Monitor Alarmo events for error handling and status updates
@@ -313,9 +277,7 @@ actions:
       # === DISARMED STATE SYNCHRONIZATION ===
       - conditions:
           - condition: trigger
-            id:
-              - alarmo_state_disarmed
-              - alarmo_master_disarmed
+            id: alarmo_master_disarmed
         sequence:
           # Update keypad display to show disarmed state (only if not already disarmed)
           - condition: not
@@ -335,9 +297,7 @@ actions:
       # === ARMED HOME STATE SYNCHRONIZATION ===
       - conditions:
           - condition: trigger
-            id:
-              - alarmo_state_armed_home
-              - alarmo_master_armed_home
+            id: alarmo_master_armed_home
         sequence:
           # Update keypad display to show armed home state
           - action: alarm_control_panel.alarm_arm_home
@@ -352,9 +312,7 @@ actions:
       # === ARMED AWAY STATE SYNCHRONIZATION ===
       - conditions:
           - condition: trigger
-            id:
-              - alarmo_state_armed_away
-              - alarmo_master_armed_away
+            id: alarmo_master_armed_away
         sequence:
           # Update keypad display to show armed away state
           - action: alarm_control_panel.alarm_arm_away
@@ -369,9 +327,7 @@ actions:
       # === ARMED NIGHT STATE SYNCHRONIZATION ===
       - conditions:
           - condition: trigger
-            id:
-              - alarmo_state_armed_night
-              - alarmo_master_armed_night
+            id: alarmo_master_armed_night
         sequence:
           # Update keypad display to show armed night state
           - action: alarm_control_panel.alarm_arm_night
@@ -386,9 +342,7 @@ actions:
       # === ARMED VACATION STATE SYNCHRONIZATION ===
       - conditions:
           - condition: trigger
-            id:
-              - alarmo_state_armed_vacation
-              - alarmo_master_armed_vacation
+            id: alarmo_master_armed_vacation
         sequence:
           # Update keypad display (vacation mode maps to away since most keypads don't support it)
           - action: alarm_control_panel.alarm_arm_away
@@ -403,9 +357,7 @@ actions:
       # === ARMED CUSTOM BYPASS STATE SYNCHRONIZATION ===
       - conditions:
           - condition: trigger
-            id:
-              - alarmo_state_armed_custom_bypass
-              - alarmo_master_armed_custom_bypass
+            id: alarmo_master_armed_custom_bypass
         sequence:
           # Update keypad display (custom bypass maps to away since most keypads don't support it)
           - action: alarm_control_panel.alarm_arm_away
@@ -421,9 +373,7 @@ actions:
       # Handle the intermediate arming state with delay countdown
       - conditions:
           - condition: trigger
-            id:
-              - alarmo_state_armed_arming
-              - alarmo_master_arming
+            id: alarmo_master_arming
         sequence:
           # Update keypad to show appropriate arming state based on target mode
           # Check Alarmo's arm_mode attribute to determine which mode it's arming to
