@@ -490,5 +490,6 @@ actions:
     default: []
 
 # === AUTOMATION EXECUTION MODE ===
-# Use single mode to prevent overlapping executions that could cause conflicts
-mode: single
+# Use queued mode to process triggers sequentially with a maximum queue of 3
+mode: queued
+max: 3
