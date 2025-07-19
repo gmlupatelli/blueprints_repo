@@ -490,6 +490,6 @@ actions:
     default: []
 
 # === AUTOMATION EXECUTION MODE ===
-# Use queued mode to process triggers sequentially with a maximum queue of 3
-mode: queued
+# Use parallel mode to process triggers concurrently with a maximum of 3 simultaneous executions
+mode: parallel
 max: 3
