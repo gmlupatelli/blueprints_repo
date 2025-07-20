@@ -93,6 +93,25 @@ Advanced HVAC system performance monitoring that detects when your heating or co
   - `counter.hvac_cooling_failures`
   - `counter.hvac_heating_failures`
 
+### 🔐 Xfinity Keypad and Alarmo Synchronization
+**File:** `xfinity_keypad_and_alarmo_syncronization/xfinity_keypad_and_alarmo_syncronization.yaml`
+
+Integrates a Xfinity xhk1-ue ZigBee Wireless Keypad from Comcast with the Alarmo HACS addon for seamless security system control.
+
+**Features:**
+- Full bidirectional synchronization between keypad and Alarmo
+- Arm and disarm Alarmo using keypad with Alarmo passwords (not ZHA keypad password)
+- Keypad display automatically reflects Alarmo state changes from Home Assistant
+- Support for all Alarmo modes: Home, Away, Night, Vacation, and Custom Bypass
+- MQTT communication for reliable command transmission
+- Error handling for invalid codes and failed arming attempts
+- Customizable additional actions for each alarm state change
+- Parallel execution mode for responsive keypad interaction
+- **Requirements:** 
+  - Xfinity xhk1-ue ZigBee keypad paired with ZHA
+  - Alarmo HACS integration installed and configured
+  - MQTT broker configured
+
 ## Blueprint Features
 
 All blueprints in this collection include:
