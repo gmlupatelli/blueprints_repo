@@ -376,17 +376,8 @@ actions:
             id: alarmo_master_arming
         sequence:
           # Update keypad to show appropriate arming state based on target mode
-          # Check Alarmo's arm_mode attribute to determine which mode it's arming to
+          # Simplified template logic using direct arm_mode attribute mapping with default fallback
           - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'away' }}"
-                sequence:
-                  - action: alarm_control_panel.alarm_arm_away
-                    target:
-                      entity_id: !input keypad_entity
-                    data:
-                      code: !input keypad_code
               - conditions:
                   - condition: template
                     value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'home' }}"
@@ -405,25 +396,13 @@ actions:
                       entity_id: !input keypad_entity
                     data:
                       code: !input keypad_code
-              - conditions:
-                  - condition: template
-                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'vacation' }}"
-                sequence:
-                  - action: alarm_control_panel.alarm_arm_away
-                    target:
-                      entity_id: !input keypad_entity
-                    data:
-                      code: !input keypad_code
-              - conditions:
-                  - condition: template
-                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'custom_bypass' }}"
-                sequence:
-                  - action: alarm_control_panel.alarm_arm_away
-                    target:
-                      entity_id: !input keypad_entity
-                    data:
-                      code: !input keypad_code
-            default: []
+            # Default fallback for vacation, custom_bypass, away, and any new modes
+            default:
+              - action: alarm_control_panel.alarm_arm_away
+                target:
+                  entity_id: !input keypad_entity
+                data:
+                  code: !input keypad_code
       
       # === ERROR HANDLING: INVALID CODE ===
       # When an invalid code is entered, sync keypad back to current Alarmo state
