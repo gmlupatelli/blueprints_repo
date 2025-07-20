@@ -1,5 +1,5 @@
 blueprint:
-  name: Xfinity Keypad and Alarmo Synchronization
+  name: ZHA - Xfinity Keypad and Alarmo Synchronization
   description: >-
     Integrates a Xfinity xhk1-ue ZigBee Wireless Keypad from Comcast with the 
     Alarmo HACS addon. This blueprint allows you to arm and disarm Alarmo using 
@@ -162,8 +162,6 @@ triggers:
         arm_mode_description: Arm_Night_Sleep_Only
     id: arm_night
     trigger: event
-  
-
   
   # === ALARMO MQTT EVENT MONITORING ===
   # Monitor Alarmo events for error handling and status updates
@@ -376,20 +374,12 @@ actions:
             id: alarmo_master_arming
         sequence:
           # Update keypad to show appropriate arming state based on target mode
-          # Check Alarmo's arm_mode attribute to determine which mode it's arming to
+          # Use arm_mode attribute which shows the target state (e.g., "armed_away" when arming to away)
+          # Vacation and custom bypass modes map to away since keypad only supports home/away/night
           - choose:
               - conditions:
                   - condition: template
-                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'away' }}"
-                sequence:
-                  - action: alarm_control_panel.alarm_arm_away
-                    target:
-                      entity_id: !input keypad_entity
-                    data:
-                      code: !input keypad_code
-              - conditions:
-                  - condition: template
-                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'home' }}"
+                    value_template: "{{ state_attr(trigger.entity_id, 'arm_mode') == 'armed_home' }}"
                 sequence:
                   - action: alarm_control_panel.alarm_arm_home
                     target:
@@ -398,32 +388,20 @@ actions:
                       code: !input keypad_code
               - conditions:
                   - condition: template
-                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'night' }}"
+                    value_template: "{{ state_attr(trigger.entity_id, 'arm_mode') == 'armed_night' }}"
                 sequence:
                   - action: alarm_control_panel.alarm_arm_night
                     target:
                       entity_id: !input keypad_entity
                     data:
                       code: !input keypad_code
-              - conditions:
-                  - condition: template
-                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'vacation' }}"
-                sequence:
-                  - action: alarm_control_panel.alarm_arm_away
-                    target:
-                      entity_id: !input keypad_entity
-                    data:
-                      code: !input keypad_code
-              - conditions:
-                  - condition: template
-                    value_template: "{{ state_attr(alarmo_entity, 'arm_mode') == 'custom_bypass' }}"
-                sequence:
-                  - action: alarm_control_panel.alarm_arm_away
-                    target:
-                      entity_id: !input keypad_entity
-                    data:
-                      code: !input keypad_code
-            default: []
+            default:
+              # Default to away mode for armed_away, armed_vacation, and armed_custom_bypass
+              - action: alarm_control_panel.alarm_arm_away
+                target:
+                  entity_id: !input keypad_entity
+                data:
+                  code: !input keypad_code
       
       # === ERROR HANDLING: INVALID CODE ===
       # When an invalid code is entered, sync keypad back to current Alarmo state
