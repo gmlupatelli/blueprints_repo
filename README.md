@@ -112,16 +112,6 @@ Integrates a Xfinity xhk1-ue ZigBee Wireless Keypad from Comcast with the Alarmo
   - Alarmo HACS integration installed and configured
   - MQTT broker configured
 
-## Blueprint Features
-
-All blueprints in this collection include:
-
-- ✅ **Comprehensive Documentation** - Extensive inline comments explaining logic and configuration
-- ✅ **Flexible Configuration** - Multiple input options to customize behavior
-- ✅ **Production Ready** - Tested and designed for reliability
-- ✅ **Exclusion Systems** - Advanced filtering capabilities where applicable
-- ✅ **Error Handling** - Graceful handling of edge cases and failures
-
 ## Installation
 
 1. Copy the desired blueprint YAML file to your Home Assistant `config/blueprints/automation/` directory
