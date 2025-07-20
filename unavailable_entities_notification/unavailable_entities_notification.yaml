@@ -74,7 +74,7 @@ blueprint:
     # Define what happens when unavailable entities are detected
     actions:
       name: Actions
-      description: Notifications or similar to be run. {{entities}} is replaced with the names of unavailable entities.
+      description: Notifications or similar to be run. {{entities}} is replaced with a formated list of the names of unavailable entities. {{unformatted_entities}} is also available as an unformatted list for advanced templating.
       selector:
         action:
 
@@ -98,7 +98,7 @@ variables:
   # === UNAVAILABLE ENTITY DETECTION WITH EXCLUSION LOGIC ===
   # Build a list of unavailable entities, excluding those specified by the user
   # Exclusion supports entities, devices, areas, and labels for maximum flexibility
-  entities: >-
+  unformatted_entities: >-
     {% set result = namespace(includedEntities=[], excludedEntities = []) %}
 
     {# === ENTITY EXCLUSION === #}
@@ -107,6 +107,8 @@ variables:
         {% set result.excludedEntities = result.excludedEntities + ([exclude.entity_id] if exclude.entity_id is string else exclude.entity_id) %}
     {% endif %}
 
+    {# === DEVICE EXCLUSION === #}
+    {# Exclude all entities belonging to specified devices #}
     {% if exclude.device_id is defined %}
       {% if exclude.device_id is not list %}
         {% set device_id_list = [exclude.device_id] %}
@@ -163,9 +165,13 @@ variables:
           {% set result.includedEntities = result.includedEntities + [state.name] %}
         {% endif %}
     {% endfor %}
+    
+    {# Return the list of entities for checking #}
+    {{ result.includedEntities }}
 
-    {# Format output for notification template #}
-    {{"- "}}{{result.includedEntities|join('\n- ')}}
+  # Format entities for notification template
+  entities: >-
+    {{"- "}}{{unformatted_entities|join('\n- ')}}
 
 # === AUTOMATION TRIGGERS ===
 # Run at the specified time each day
@@ -194,7 +200,7 @@ condition:
   # Only proceed if there are actually unavailable entities to report
   - condition: template
     value_template: >-
-        {{ entities != "- "}}
+        {{ unformatted_entities | length > 0 }}
 
 # === AUTOMATION ACTIONS ===
 # Execute user-defined actions when unavailable entities are detected

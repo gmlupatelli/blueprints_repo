@@ -86,7 +86,7 @@ blueprint:
     # Define what happens when low battery sensors are detected
     actions:
       name: Actions
-      description: Notifications or similar to be run. {{sensors}} is replaced with the names of sensors being low on battery.
+      description: Notifications or similar to be run. {{sensors}} is replaced with a formated list of the names of sensors being low on battery. {{unformatted_sensors}} is also available as an unformatted list for advanced templating.
       selector:
         action:
 
@@ -111,7 +111,7 @@ variables:
   # === BATTERY SENSOR DETECTION WITH EXCLUSION LOGIC ===
   # Build a list of low battery sensors, excluding those specified by the user
   # Exclusion supports entities, devices, areas, and labels for maximum flexibility
-  sensors: >-
+  unformatted_sensors: >-
     {% set result = namespace(sensors=[], excludedEntities=[]) %}
 
     {# === ENTITY EXCLUSION === #}
@@ -185,8 +185,12 @@ variables:
       {% endif %}
     {% endfor %}
     
-    {# Format output for notification template #}
-    {{"- "}}{{result.sensors|join('\n- ')}}
+    {# Return the list of sensors for checking #}
+    {{ result.sensors }}
+
+  # Format sensors for notification template
+  sensors: >-
+    {{"- "}}{{unformatted_sensors|join('\n- ')}}
 
 # === AUTOMATION TRIGGERS ===
 # Run at the specified time each day
@@ -205,7 +209,7 @@ condition:
           (current_day == 1 and tuesday_enabled) or 
           (current_day == 2 and wednesday_enabled) or
           (current_day == 3 and thursday_enabled) or 
-          (current_day == 4 and friday_enabled) or
+          (current_day == 4 and friday_enabled) or 
           (current_day == 5 and saturday_enabled) or
           (current_day == 6 and sunday_enabled)
         }}
@@ -213,7 +217,7 @@ condition:
   # Only proceed if there are actually low battery sensors to report
   - condition: template
     value_template: >-
-        {{ sensors != "- "}}
+        {{ unformatted_sensors | length > 0 }}
 
 # === AUTOMATION ACTIONS ===
 # Execute user-defined actions when low battery sensors are detected
