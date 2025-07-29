@@ -101,7 +101,7 @@ blueprint:
       name: Maximum Consecutive Failures
       description: >
         How many consecutive failures before triggering alert. 
-        This counter is reseted after a successful heating or cooling cycle.
+        This counter is reset after a successful heating or cooling cycle.
       default: 4
       selector:
         number:
@@ -129,6 +129,8 @@ variables:
   cooling_temp_tolerance: !input cooling_temperature_tolerance
   heating_temp_tolerance: !input heating_temperature_tolerance
   max_failures: !input max_consecutive_failures
+  enable_cooling_check: !input enable_cooling_check
+  enable_heating_check: !input enable_heating_check
 
 # Trigger when thermostat HVAC action changes to heating or cooling
 # This monitors the actual system operation, not just the mode setting
@@ -150,8 +152,15 @@ action:
   # Record the starting conditions when HVAC begins operating
   - variables:
       hvac_action: "{{ trigger.to_state.attributes.hvac_action }}"                        # Store which hvac_action triggered (heating/cooling)
-      current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float }}"  # Current room temperature
-      target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float }}"           # Thermostat setpoint
+      current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float(0) }}"  # Current room temperature
+      target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float(0) }}"           # Thermostat setpoint
+
+  # Ensure we have valid temperature readings before proceeding
+  - condition: template
+    value_template: >
+      {{ current_temp != 0 and target_temp != 0 and 
+         state_attr(thermostat_entity, 'current_temperature') is not none and 
+         state_attr(thermostat_entity, 'temperature') is not none }}
 
   # === DEADBAND DETECTION AND VALIDATION ===
   # Calculate the current deadband by measuring how far we are from setpoint
@@ -173,7 +182,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'cooling' }}"
         - condition: template
-          value_template: "{{ input('enable_cooling_check') }}"
+          value_template: "{{ enable_cooling_check }}"
         - condition: template
           value_template: "{{ cooling_temp_tolerance >= estimated_deadband and estimated_deadband > 0.1 }}"
       sequence:
@@ -197,7 +206,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"
         - condition: template
-          value_template: "{{ input('enable_heating_check') }}"
+          value_template: "{{ enable_heating_check }}"
         - condition: template
           value_template: "{{ heating_temp_tolerance >= estimated_deadband and estimated_deadband > 0.1 }}"
       sequence:
@@ -250,10 +259,10 @@ action:
   # === PHASE 4: CALCULATE TEMPERATURE CHANGE ===
   # Compare current temperature to starting temperature
   - variables:
-      new_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float }}"      # Temperature after runtime
-      start_temp: "{{ states('input_number.hvac_monitor_start_temp') | float }}"          # Temperature when started
+      new_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float(0) }}"      # Temperature after runtime
+      start_temp: "{{ states('input_number.hvac_monitor_start_temp') | float(0) }}"          # Temperature when started
       temp_change: "{{ new_temp - start_temp }}"                                          # Total change (positive = warmer, negative = cooler)
-      current_setpoint: "{{ state_attr(thermostat_entity, 'temperature') | float }}"      # Current thermostat setpoint
+      current_setpoint: "{{ state_attr(thermostat_entity, 'temperature') | float(0) }}"      # Current thermostat setpoint
 
   # === PHASE 5: EVALUATE PERFORMANCE AND TAKE ACTION ===
   - choose:
@@ -263,7 +272,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'cooling' }}"                               # This was a cooling cycle
         - condition: template
-          value_template: "{{ input('enable_cooling_check') }}"                          # User enabled cooling monitoring
+          value_template: "{{ enable_cooling_check }}"                                   # User enabled cooling monitoring
         - condition: template
           value_template: "{{ temp_change >= -cooling_temp_tolerance }}"                 # Temperature didn't drop enough (failure condition)
       sequence:
@@ -310,9 +319,9 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"                               # This was a heating cycle
         - condition: template
-          value_template: "{{ input('enable_heating_check') }}"                          # User enabled heating monitoring
+          value_template: "{{ enable_heating_check }}"                                   # User enabled heating monitoring
         - condition: template
-          value_template: "{{ temp_change <= heating_temp_tolerance }}"                  # Temperature didn't rise enough (failure condition)
+          value_template: "{{ temp_change < heating_temp_tolerance }}"                   # Temperature didn't rise enough (failure condition)
       sequence:
         # Increment the consecutive failure counter
         - service: counter.increment
@@ -357,7 +366,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'cooling' }}"                               # This was a cooling cycle
         - condition: template
-          value_template: "{{ input('enable_cooling_check') }}"                          # User enabled cooling monitoring
+          value_template: "{{ enable_cooling_check }}"                                   # User enabled cooling monitoring
         - condition: or
           conditions:
             # Success Case 1: Temperature dropped more than the minimum tolerance
@@ -386,7 +395,7 @@ action:
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"                               # This was a heating cycle
         - condition: template
-          value_template: "{{ input('enable_heating_check') }}"                          # User enabled heating monitoring
+          value_template: "{{ enable_heating_check }}"                                   # User enabled heating monitoring
         - condition: or
           conditions:
             # Success Case 1: Temperature rose more than the minimum tolerance
