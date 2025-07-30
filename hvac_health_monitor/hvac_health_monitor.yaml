@@ -21,7 +21,7 @@ blueprint:
       description: >
         The thermostat entity to monitor.
         
-        ⚠️ IMPORTANT: Your thermostat must have an 'hvac_action' attribute that reports 'heating' 
+        IMPORTANT: Your thermostat must have an 'hvac_action' attribute that reports 'heating' 
         or 'cooling' when the system is actively running. Check in Developer Tools > States to 
         verify your thermostat shows hvac_action: heating/cooling/idle.
         
@@ -46,7 +46,7 @@ blueprint:
       description: >
         Minimum temperature decrease expected during cooling runtime (in degrees Celsius).
         
-        ⚠️ IMPORTANT: This value should be SMALLER than your thermostat's deadband (the temperature 
+        IMPORTANT: This value should be SMALLER than your thermostat's deadband (the temperature 
         difference that triggers your AC). Most thermostats have a 0.5-1.5°C deadband.
         
         Example: If your AC turns on when room is 0.5°C above setpoint, the system will normally 
@@ -67,7 +67,7 @@ blueprint:
       description: >
         Minimum temperature increase expected during heating runtime (in degrees Celsius).
         
-        ⚠️ IMPORTANT: This value should be SMALLER than your thermostat's deadband (the temperature 
+        IMPORTANT: This value should be SMALLER than your thermostat's deadband (the temperature 
         difference that triggers your heater). Most thermostats have a 0.5-1.5°C deadband.
         
         Example: If your heater turns on when room is 0.5°C below setpoint, the system will normally 
@@ -189,7 +189,7 @@ action:
         - service: persistent_notification.create
           data:
             notification_id: "hvac_monitor_cooling_deadband_warning"
-            title: "⚠️ HVAC Monitor: Cooling Tolerance Too High"
+            title: "HVAC Monitor: Cooling Tolerance Too High"
             message: >
               Your cooling tolerance ({{ cooling_temp_tolerance }}°C) is higher than or equal to your 
               thermostat's current deadband (~{{ estimated_deadband | round(2) }}°C).
@@ -197,7 +197,7 @@ action:
               This will likely cause false failure alerts because your AC will normally stop 
               cooling after only {{ estimated_deadband | round(2) }}°C change.
               
-              💡 Recommendation: Set your cooling tolerance to {{ (estimated_deadband * 0.7) | round(1) }}°C 
+              Recommendation: Set your cooling tolerance to {{ (estimated_deadband * 0.7) | round(1) }}°C 
               or lower to avoid false alarms.
               
               Current settings: Tolerance={{ cooling_temp_tolerance }}°C, Estimated deadband={{ estimated_deadband | round(2) }}°C
@@ -213,7 +213,7 @@ action:
         - service: persistent_notification.create
           data:
             notification_id: "hvac_monitor_heating_deadband_warning"
-            title: "⚠️ HVAC Monitor: Heating Tolerance Too High"
+            title: "HVAC Monitor: Heating Tolerance Too High"
             message: >
               Your heating tolerance ({{ heating_temp_tolerance }}°C) is higher than or equal to your 
               thermostat's current deadband (~{{ estimated_deadband | round(2) }}°C).
@@ -221,7 +221,7 @@ action:
               This will likely cause false failure alerts because your heater will normally stop 
               heating after only {{ estimated_deadband | round(2) }}°C change.
               
-              💡 Recommendation: Set your heating tolerance to {{ (estimated_deadband * 0.7) | round(1) }}°C 
+              Recommendation: Set your heating tolerance to {{ (estimated_deadband * 0.7) | round(1) }}°C 
               or lower to avoid false alarms.
               
               Current settings: Tolerance={{ heating_temp_tolerance }}°C, Estimated deadband={{ estimated_deadband | round(2) }}°C
@@ -321,7 +321,7 @@ action:
         - condition: template
           value_template: "{{ enable_heating_check }}"                                   # User enabled heating monitoring
         - condition: template
-          value_template: "{{ temp_change < heating_temp_tolerance }}"                   # Temperature didn't rise enough (failure condition)
+          value_template: "{{ temp_change <= heating_temp_tolerance }}"                  # Temperature didn't rise enough (failure condition)
       sequence:
         # Increment the consecutive failure counter
         - service: counter.increment
