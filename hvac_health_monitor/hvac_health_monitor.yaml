@@ -5,7 +5,7 @@ blueprint:
     responds appropriately to heating and cooling cycles. Detects potential 
     issues when the system runs but temperature doesn't change as expected.
     
-    📋 SETUP REQUIRED: This blueprint requires 4 Helper Entities and your thermostat 
+    SETUP REQUIRED: This blueprint requires 4 Helper Entities and your thermostat 
     must have an 'hvac_action' attribute. See the README.md file in this folder for 
     complete setup instructions and troubleshooting guide.
     
