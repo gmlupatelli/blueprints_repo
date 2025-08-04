@@ -243,14 +243,12 @@ trigger:
   # Template trigger for long runtime detection
   - platform: template
     value_template: >
-      {% set thermostat = !input thermostat %}
-      {% set hvac_action = state_attr(thermostat, 'hvac_action') %}
-      {% set threshold_hours = !input max_ac_continuous_runtime_hours %}
+      {% set hvac_action = state_attr(thermostat_entity, 'hvac_action') %}
       {% if hvac_action == 'cooling' %}
-        {% set cooling_start = state_attr(thermostat, 'last_changed') %}
+        {% set cooling_start = states[thermostat_entity].last_changed %}
         {% if cooling_start %}
           {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
-          {{ runtime_hours >= threshold_hours }}
+          {{ runtime_hours >= max_ac_continuous_runtime_hours }}
         {% else %}
           false
         {% endif %}
