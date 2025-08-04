@@ -5,9 +5,10 @@ blueprint:
     responds appropriately to heating and cooling cycles. Detects potential 
     issues when the system runs but temperature doesn't change as expected.
 
-    Uses different failure detection strategies: AC cooling problems trigger alerts 
-    after consecutive failures, while gas furnace heating problems are tracked weekly 
-    to catch intermittent issues like dirty flame sensors and pressure switch faults.
+    Uses different failure detection strategies optimized for a heat pump AC and gas furnace system: 
+    AC cooling problems trigger alerts after consecutive failures, while gas furnace 
+    heating problems are tracked weekly to catch intermittent issues like dirty flame sensors 
+    and pressure switch faults.
 
     SETUP REQUIRED: This blueprint requires 6 Helper Entities and your thermostat 
     must have an 'hvac_action' attribute. See the README.md file in this folder for 

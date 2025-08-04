@@ -78,20 +78,24 @@ Monitors your Home Assistant entities and alerts you when devices become unavail
 **File:** `hvac_health_monitor/hvac_health_monitor.yaml`
 
 Advanced HVAC system performance monitoring that detects when your heating or cooling isn't working effectively.
+This blueprint is optimized for a heat pump AC and gas furnace system.
 
 **Features:**
 - Monitors thermostat heating and cooling effectiveness by measuring temperature changes
 - Intelligent deadband detection with user warnings for optimal configuration
-- Tracks consecutive failures using helper entities (counters)
+- Dual failure tracking strategies: consecutive for AC cooling, weekly for gas furnace heating
+- Long runtime detection for AC systems using last_changed attribute
 - Configurable runtime monitoring and temperature tolerances
 - Persistent notifications and detailed logbook entries
 - Separate customizable actions for heating and cooling issues
 - Designed for central HVAC systems (inspired by Nest Thermostat health checks)
-- **Requirements:** 4 helper entities must be created manually:
+- **Requirements:** 6 helper entities must be created manually:
   - `input_number.hvac_monitor_start_temp`
-  - `input_datetime.hvac_monitor_start_time` 
+  - `input_number.hvac_long_runtime_threshold`
   - `counter.hvac_cooling_failures`
   - `counter.hvac_heating_failures`
+  - `counter.hvac_deadband_cooling_warnings`
+  - `counter.hvac_deadband_heating_warnings`
 
 ### 🔐 Xfinity Keypad and Alarmo Synchronization
 **File:** `xfinity_keypad_and_alarmo_syncronization/xfinity_keypad_and_alarmo_syncronization.yaml`
