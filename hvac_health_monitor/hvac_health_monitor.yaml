@@ -4,14 +4,19 @@ blueprint:
     Monitors your HVAC system's performance by checking if the temperature
     responds appropriately to heating and cooling cycles. Detects potential 
     issues when the system runs but temperature doesn't change as expected.
-    
-    SETUP REQUIRED: This blueprint requires 4 Helper Entities and your thermostat 
+
+    Uses different failure detection strategies: AC cooling problems trigger alerts 
+    after consecutive failures, while gas furnace heating problems are tracked weekly 
+    to catch intermittent issues like dirty flame sensors and pressure switch faults.
+
+    SETUP REQUIRED: This blueprint requires 6 Helper Entities and your thermostat 
     must have an 'hvac_action' attribute. See the README.md file in this folder for 
     complete setup instructions and troubleshooting guide.
     
     Required Helper Entities: "input_number.hvac_monitor_start_temp", 
-    "input_datetime.hvac_monitor_start_time", "counter.hvac_cooling_failures", 
-    "counter.hvac_heating_failures".
+    "input_number.hvac_long_runtime_threshold", "counter.hvac_cooling_failures", 
+    "counter.hvac_heating_failures", "counter.hvac_deadband_cooling_warnings", 
+    "counter.hvac_deadband_heating_warnings".
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/hvac_health_monitor/hvac_health_monitor.yaml
 
@@ -23,7 +28,7 @@ blueprint:
         
         IMPORTANT: Your thermostat must have an 'hvac_action' attribute that reports 'heating' 
         or 'cooling' when the system is actively running. Check in Developer Tools > States to 
-        verify your thermostat shows hvac_action: heating/cooling/idle.
+        verify your thermostat shows hvac_action: heating/cooling.
         
         If your thermostat doesn't have hvac_action or reports different values, this blueprint 
         will not trigger properly.
@@ -31,14 +36,47 @@ blueprint:
         entity:
           domain: climate
 
-    minimum_runtime:
-      name: Minimum Runtime Before Check
-      description: How long the system should run before checking effectiveness (in minutes)
-      default: 60
+    cooling_minimum_runtime:
+      name: Cooling Minimum Runtime Before Check
+      description: >
+        How long AC should run before checking effectiveness (in minutes).
+        
+        AC systems work gradually and may take longer to show temperature changes, especially 
+        with performance issues like low refrigerant, dirty coils, or compressor problems.
+        These issues cause the system to run longer while producing less cooling.
+      default: 90
       selector:
         number:
-          min: 10
-          max: 120
+          min: 30
+          max: 240
+          unit_of_measurement: minutes
+
+    max_ac_continuous_runtime_hours:
+      name: Maximum AC Continuous Runtime (Hours)
+      description: >
+        Alert if AC runs continuously longer than this many hours without stopping.
+        Long runtime often indicates the system can't reach setpoint due to problems.
+        Typical causes: Low refrigerant, dirty coils, undersized system, or extreme weather.
+      default: 12
+      selector:
+        number:
+          min: 4
+          max: 24
+          unit_of_measurement: hours
+
+    heating_minimum_runtime:
+      name: Heating Minimum Runtime Before Check
+      description: >
+        How long gas furnace should run before checking effectiveness (in minutes).
+        
+        Gas furnaces heat quickly when working properly. If heating takes much longer,
+        it likely indicates safety shutdowns (dirty flame sensor, pressure switch faults)
+        that prevent burner operation while the blower continues running.
+      default: 30
+      selector:
+        number:
+          min: 15
+          max: 90
           unit_of_measurement: minutes
 
     cooling_temperature_tolerance:
@@ -90,6 +128,15 @@ blueprint:
       selector:
         boolean:
 
+    enable_ac_long_runtime_detection:
+      name: Enable AC Long Runtime Detection
+      description: >
+        Monitor for AC running continuously for extended periods, which may indicate 
+        system problems like refrigerant leaks, blocked airflow, or compressor issues.
+      default: true
+      selector:
+        boolean:
+
     enable_heating_check:
       name: Enable Heating Performance Check
       description: Monitor heating performance
@@ -97,12 +144,48 @@ blueprint:
       selector:
         boolean:
 
-    max_consecutive_failures:
-      name: Maximum Consecutive Failures
+    enable_deadband_detection:
+      name: Enable Deadband Detection
       description: >
-        How many consecutive failures before triggering alert. 
-        This counter is reset after a successful heating or cooling cycle.
+        Enable warnings when tolerance settings might be too high relative to thermostat deadband.
+        Disable this for smart thermostats (Google Nest, Ecobee, etc.) that use predictive algorithms
+        and don't follow strict deadband rules.
+      default: true
+      selector:
+        boolean:
+
+    max_consecutive_cooling_failures:
+      name: Maximum Consecutive Cooling Failures
+      description: >
+        How many consecutive cooling failures before triggering alert.
+        AC problems often manifest immediately, so a lower threshold helps detect issues quickly.
+        This counter is reset after a successful cooling cycle.
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 10
+
+    max_weekly_heating_failures:
+      name: Maximum Heating Failures Per Week
+      description: >
+        How many heating failures in a 7-day period before triggering alert.
+        Gas furnace problems are often intermittent (dirty flame sensor, pressure switch issues)
+        that work sometimes but fail randomly. Weekly tracking catches declining performance
+        better than consecutive failures, as successful cycles between failures are normal.
+        Counter resets every Sunday at midnight.
       default: 4
+      selector:
+        number:
+          min: 1
+          max: 15
+
+    deadband_warning_threshold:
+      name: Deadband Warning Threshold
+      description: >
+        Number of consecutive deadband detection warnings before showing notification.
+        Higher values reduce false alarms from smart thermostats that override deadband logic.
+      default: 5
       selector:
         number:
           min: 1
@@ -122,18 +205,32 @@ blueprint:
       selector:
         action: {}
 
+    long_ac_runtime_actions:
+      name: Long AC Runtime Problem Actions
+      description: Actions to perform when extended AC runtime is detected
+      default: []
+      selector:
+        action: {}
+
 # Store user inputs as variables for easier reference throughout the automation
 variables:
   thermostat_entity: !input thermostat
-  min_runtime: !input minimum_runtime
+  cooling_min_runtime: !input cooling_minimum_runtime
+  heating_min_runtime: !input heating_minimum_runtime
   cooling_temp_tolerance: !input cooling_temperature_tolerance
   heating_temp_tolerance: !input heating_temperature_tolerance
-  max_failures: !input max_consecutive_failures
+  max_cooling_failures: !input max_consecutive_cooling_failures
+  max_heating_failures: !input max_weekly_heating_failures
   enable_cooling_check: !input enable_cooling_check
   enable_heating_check: !input enable_heating_check
+  enable_deadband_detection: !input enable_deadband_detection
+  deadband_warning_threshold: !input deadband_warning_threshold
+  enable_ac_long_runtime_detection: !input enable_ac_long_runtime_detection
+  max_ac_continuous_runtime_hours: !input max_ac_continuous_runtime_hours
 
 # Trigger when thermostat HVAC action changes to heating or cooling
-# This monitors the actual system operation, not just the mode setting
+# Also trigger when AC has been running continuously for too long  
+# Also trigger weekly (Sunday midnight) to reset heating failure counter
 trigger:
   - platform: state
     entity_id: !input thermostat
@@ -141,12 +238,111 @@ trigger:
     to:
       - 'heating'     # Monitor when heating starts
       - 'cooling'     # Monitor when cooling starts
+  
+  # Template trigger for long runtime detection
+  - platform: template
+    value_template: >
+      {% set thermostat = !input thermostat %}
+      {% set hvac_action = state_attr(thermostat, 'hvac_action') %}
+      {% set threshold_hours = !input max_ac_continuous_runtime_hours %}
+      {% if hvac_action == 'cooling' %}
+        {% set cooling_start = state_attr(thermostat, 'last_changed') %}
+        {% if cooling_start %}
+          {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
+          {{ runtime_hours >= threshold_hours }}
+        {% else %}
+          false
+        {% endif %}
+      {% else %}
+        false
+      {% endif %}
+
+  # Weekly reset trigger for heating failure counter (Sundays at midnight)
+  - platform: time
+    at: "00:00:00"
 
 action:
+  # === HANDLE LONG RUNTIME ALERT ===
+  # Process template trigger for long runtime detection
+  - choose:
+    - conditions:
+        - condition: template
+          value_template: "{{ trigger.platform == 'template' }}"
+        - condition: template
+          value_template: "{{ enable_ac_long_runtime_detection }}"
+      sequence:
+        # Alert for long runtime
+        - service: persistent_notification.create
+          data:
+            notification_id: "hvac_monitor_long_runtime"
+            title: "AC Long Runtime Alert"
+            message: >
+              {% set thermostat = !input thermostat %}
+              {% set cooling_start = state_attr(thermostat, 'last_changed') %}
+              {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
+              AC has been running continuously for {{ runtime_hours | round(1) }} hours 
+              (started {{ cooling_start.strftime('%Y-%m-%d %H:%M:%S') }}).
+              
+              Extended runtime may indicate: Low refrigerant, dirty condenser coils, 
+              blocked airflow, undersized system, or extreme weather conditions.
+              
+              The system is unable to reach the setpoint efficiently.
+        
+        # Log the long runtime event
+        - service: logbook.log
+          data:
+            name: "HVAC Health Monitor"
+            message: >
+              {% set thermostat = !input thermostat %}
+              {% set cooling_start = state_attr(thermostat, 'last_changed') %}
+              {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
+              AC long runtime detected: {{ runtime_hours | round(1) }} hours continuous operation. 
+              Possible system efficiency issues.
+        
+        # Execute user-defined actions for long runtime
+        - choose: []
+          default: !input long_ac_runtime_actions
+        
+        # Stop processing - we're done with the long runtime alert
+        - stop: "Long runtime alert processed"
+
+  # === HANDLE WEEKLY HEATING FAILURE RESET ===
+  # Reset heating failure counter every Sunday at midnight
+  - choose:
+    - conditions:
+        - condition: template
+          value_template: "{{ trigger.platform == 'time' }}"
+        - condition: template
+          value_template: "{{ now().weekday() == 6 }}"  # Sunday = 6
+      sequence:
+        # Reset heating failure counter for new week
+        - service: counter.reset
+          target:
+            entity_id: counter.hvac_heating_failures
+        
+        # Stop processing - we're done with the weekly reset
+        - stop: "Weekly reset completed"
+
+  # === HANDLE COOLING START ===
+  # Update threshold helper and record start time when cooling begins
+  - choose:
+    - conditions:
+        - condition: template
+          value_template: "{{ trigger.platform == 'state' and trigger.to_state.attributes.hvac_action == 'cooling' }}"
+        - condition: template
+          value_template: "{{ enable_ac_long_runtime_detection }}"
+      sequence:
+        # Update the threshold helper with current setting
+        - service: input_number.set_value
+          target:
+            entity_id: input_number.hvac_long_runtime_threshold
+          data:
+            value: "{{ max_ac_continuous_runtime_hours }}"
+
   # === PHASE 0: VALIDATE TRIGGER ===
-  # Ensure this automation was triggered by a proper hvac_action change, not manually
+  # Ensure this automation was triggered by a proper hvac_action change to heating/cooling, not manually
   - condition: template
-    value_template: "{{ trigger.to_state is defined and trigger.to_state.attributes.hvac_action in ['heating', 'cooling'] }}"
+    value_template: "{{ trigger.platform == 'state' and trigger.to_state is defined and trigger.to_state.attributes.hvac_action in ['heating', 'cooling'] }}"
 
   # === PHASE 1: CAPTURE INITIAL CONDITIONS ===
   # Record the starting conditions when HVAC begins operating
@@ -177,8 +373,11 @@ action:
 
   # === DEADBAND WARNING NOTIFICATIONS ===
   # Warn user if their tolerance settings might cause false failures
+  # Only if deadband detection is enabled and after multiple consecutive warnings
   - choose:
     - conditions:
+        - condition: template
+          value_template: "{{ enable_deadband_detection }}"
         - condition: template
           value_template: "{{ hvac_action == 'cooling' }}"
         - condition: template
@@ -186,23 +385,41 @@ action:
         - condition: template
           value_template: "{{ cooling_temp_tolerance >= estimated_deadband and estimated_deadband > 0.1 }}"
       sequence:
+        # Increment deadband warning counter
+        - service: counter.increment
+          target:
+            entity_id: counter.hvac_deadband_cooling_warnings
+        
+        # Only show notification after threshold is reached
+        - condition: template
+          value_template: >
+            {{ states('counter.hvac_deadband_cooling_warnings') | int >= deadband_warning_threshold }}
+        
+        # Reset the warning counter since we're about to notify
+        - service: counter.reset
+          target:
+            entity_id: counter.hvac_deadband_cooling_warnings
+        
         - service: persistent_notification.create
           data:
             notification_id: "hvac_monitor_cooling_deadband_warning"
             title: "HVAC Monitor: Cooling Tolerance Too High"
             message: >
-              Your cooling tolerance ({{ cooling_temp_tolerance }}°C) is higher than or equal to your 
-              thermostat's current deadband (~{{ estimated_deadband | round(2) }}°C).
+              Your cooling tolerance ({{ cooling_temp_tolerance }}°C) has been consistently higher than or 
+              equal to your thermostat's deadband (~{{ estimated_deadband | round(2) }}°C) for 
+              {{ deadband_warning_threshold }} consecutive cycles.
               
-              This will likely cause false failure alerts because your AC will normally stop 
+              This may cause false failure alerts because your AC will normally stop 
               cooling after only {{ estimated_deadband | round(2) }}°C change.
               
               Recommendation: Set your cooling tolerance to {{ (estimated_deadband * 0.7) | round(1) }}°C 
-              or lower to avoid false alarms.
+              or lower to avoid false alarms, or disable deadband detection if you have a smart thermostat.
               
               Current settings: Tolerance={{ cooling_temp_tolerance }}°C, Estimated deadband={{ estimated_deadband | round(2) }}°C
 
     - conditions:
+        - condition: template
+          value_template: "{{ enable_deadband_detection }}"
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"
         - condition: template
@@ -210,19 +427,35 @@ action:
         - condition: template
           value_template: "{{ heating_temp_tolerance >= estimated_deadband and estimated_deadband > 0.1 }}"
       sequence:
+        # Increment deadband warning counter
+        - service: counter.increment
+          target:
+            entity_id: counter.hvac_deadband_heating_warnings
+        
+        # Only show notification after threshold is reached
+        - condition: template
+          value_template: >
+            {{ states('counter.hvac_deadband_heating_warnings') | int >= deadband_warning_threshold }}
+        
+        # Reset the warning counter since we're about to notify
+        - service: counter.reset
+          target:
+            entity_id: counter.hvac_deadband_heating_warnings
+        
         - service: persistent_notification.create
           data:
             notification_id: "hvac_monitor_heating_deadband_warning"
             title: "HVAC Monitor: Heating Tolerance Too High"
             message: >
-              Your heating tolerance ({{ heating_temp_tolerance }}°C) is higher than or equal to your 
-              thermostat's current deadband (~{{ estimated_deadband | round(2) }}°C).
+              Your heating tolerance ({{ heating_temp_tolerance }}°C) has been consistently higher than or 
+              equal to your thermostat's deadband (~{{ estimated_deadband | round(2) }}°C) for 
+              {{ deadband_warning_threshold }} consecutive cycles.
               
-              This will likely cause false failure alerts because your heater will normally stop 
+              This may cause false failure alerts because your heater will normally stop 
               heating after only {{ estimated_deadband | round(2) }}°C change.
               
               Recommendation: Set your heating tolerance to {{ (estimated_deadband * 0.7) | round(1) }}°C 
-              or lower to avoid false alarms.
+              or lower to avoid false alarms, or disable deadband detection if you have a smart thermostat.
               
               Current settings: Tolerance={{ heating_temp_tolerance }}°C, Estimated deadband={{ estimated_deadband | round(2) }}°C
 
@@ -234,18 +467,16 @@ action:
     data:
       value: "{{ current_temp }}"
 
-  # Record the exact time when monitoring started
-  # Used for debugging and ensuring we wait the full runtime
-  - service: input_datetime.set_datetime
-    target:
-      entity_id: input_datetime.hvac_monitor_start_time
-    data:
-      datetime: "{{ now() }}"
-
   # === PHASE 2: WAIT FOR SYSTEM TO OPERATE ===
   # Allow the HVAC system time to work before checking effectiveness
+  # Use different wait times based on system type (AC vs Gas Furnace)
   - delay:
-      minutes: "{{ min_runtime }}"
+      minutes: >
+        {% if hvac_action == 'cooling' %}
+          {{ cooling_min_runtime }}
+        {% else %}
+          {{ heating_min_runtime }}
+        {% endif %}
 
   # === PHASE 3: VERIFY SYSTEM IS STILL AVAILABLE ===
   # Only proceed if the thermostat is available and not turned off
@@ -261,8 +492,14 @@ action:
   - variables:
       new_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float(0) }}"      # Temperature after runtime
       start_temp: "{{ states('input_number.hvac_monitor_start_temp') | float(0) }}"          # Temperature when started
-      temp_change: "{{ new_temp - start_temp }}"                                          # Total change (positive = warmer, negative = cooler)
+      temp_change: "{{ new_temp - start_temp }}"                                             # Total change (positive = warmer, negative = cooler)
       current_setpoint: "{{ state_attr(thermostat_entity, 'temperature') | float(0) }}"      # Current thermostat setpoint
+      actual_runtime: >
+        {% if hvac_action == 'cooling' %}
+          {{ cooling_min_runtime }}
+        {% else %}
+          {{ heating_min_runtime }}
+        {% endif %}
 
   # === PHASE 5: EVALUATE PERFORMANCE AND TAKE ACTION ===
   - choose:
@@ -285,7 +522,7 @@ action:
         # This prevents alerts from single anomalies
         - condition: template
           value_template: >
-            {{ states('counter.hvac_cooling_failures') | int >= max_failures }}
+            {{ states('counter.hvac_cooling_failures') | int >= max_cooling_failures }}
         
         # Reset the failure counter since we're about to alert
         # Next failure will start counting from 1 again
@@ -296,18 +533,22 @@ action:
         # Create a persistent notification for the user
         - service: persistent_notification.create
           data:
-            title: "HVAC Cooling Alert"
+            title: "AC Cooling Problem Detected"
             message: >
-              Cooling issue: Temp only changed {{ temp_change | round(2) }}°C after {{ min_runtime }} minutes.
+              AC cooling issue: Temperature only changed {{ temp_change | round(2) }}°C after {{ actual_runtime }} minutes.
               Expected decrease of at least {{ cooling_temp_tolerance }}°C.
+              
+              Common AC problems: Low refrigerant, dirty condenser coils, compressor issues, or blocked airflow.
+              The system may be running but not cooling effectively.
         
         # Log the event for historical tracking
         - service: logbook.log
           data:
             name: "HVAC Health Monitor"
             message: >
-              Cooling failure detected: Temperature changed only {{ temp_change | round(2) }}°C 
-              after running for {{ min_runtime }} minutes. Expected at least a {{ cooling_temp_tolerance }}°C decrease.
+              AC cooling failure detected: Temperature changed only {{ temp_change | round(2) }}°C 
+              after running for {{ actual_runtime }} minutes. Expected at least a {{ cooling_temp_tolerance }}°C decrease.
+              Possible causes: Low refrigerant, dirty coils, compressor problems.
         
         # Execute user-defined actions for cooling problems
         - choose: []
@@ -323,38 +564,40 @@ action:
         - condition: template
           value_template: "{{ temp_change <= heating_temp_tolerance }}"                  # Temperature didn't rise enough (failure condition)
       sequence:
-        # Increment the consecutive failure counter
+        # Increment the weekly failure counter
         - service: counter.increment
           target:
             entity_id: counter.hvac_heating_failures
         
-        # Only alert if we've reached the maximum consecutive failures
-        # This prevents alerts from single anomalies
+        # Only alert if we've reached the maximum failures per week
+        # Counter tracks all failures in current week, not consecutive
         - condition: template
           value_template: >
-            {{ states('counter.hvac_heating_failures') | int >= max_failures }}
-        
-        # Reset the failure counter since we're about to alert
-        # Next failure will start counting from 1 again
-        - service: counter.reset
-          target:
-            entity_id: counter.hvac_heating_failures
+            {{ states('counter.hvac_heating_failures') | int >= max_heating_failures }}
         
         # Create a persistent notification for the user
         - service: persistent_notification.create
           data:
-            title: "HVAC Heating Alert"
+            title: "Gas Furnace Heating Problems Detected"
             message: >
-              Heating issue: Temp only changed {{ temp_change | round(2) }}°C after {{ min_runtime }} minutes.
+              Gas furnace has failed {{ states('counter.hvac_heating_failures') }} times this week.
+              Latest failure: Temperature only changed {{ temp_change | round(2) }}°C after {{ actual_runtime }} minutes.
               Expected increase of at least {{ heating_temp_tolerance }}°C.
+              
+              Intermittent heating failures often indicate: Dirty flame sensor, pressure switch faults, 
+              ignition problems, or gas supply issues. The system may need maintenance to prevent 
+              complete failure during peak demand periods.
+              
+              Counter resets every Sunday at midnight. Consider scheduling HVAC service.
         
         # Log the event for historical tracking
         - service: logbook.log
           data:
             name: "HVAC Health Monitor"
             message: >
-              Heating failure detected: Temperature changed only {{ temp_change | round(2) }}°C 
-              after running for {{ min_runtime }} minutes. Expected at least a {{ heating_temp_tolerance }}°C increase.
+              Gas furnace heating failure {{ states('counter.hvac_heating_failures') }} of {{ max_heating_failures }} this week. 
+              Temperature changed only {{ temp_change | round(2) }}°C after running for {{ actual_runtime }} minutes. 
+              Expected at least a {{ heating_temp_tolerance }}°C increase. Weekly tracking helps identify intermittent issues.
         
         # Execute user-defined actions for heating problems
         - choose: []
@@ -382,6 +625,11 @@ action:
           target:
             entity_id: counter.hvac_cooling_failures
         
+        # Reset deadband warning counter on successful cycle
+        - service: counter.reset
+          target:
+            entity_id: counter.hvac_deadband_cooling_warnings
+        
         # Clear cooling deadband warning only if cycle was successful
         # This indicates the warning was either incorrect or the user has addressed it
         - service: persistent_notification.dismiss
@@ -390,7 +638,7 @@ action:
           continue_on_error: true
 
     # *** HEATING SUCCESS DETECTION ***
-    # Reset failure counter when heating works properly
+    # Successful heating cycles no longer reset failure counter (weekly reset only)
     - conditions:
         - condition: template
           value_template: "{{ hvac_action == 'heating' }}"                               # This was a heating cycle
@@ -406,10 +654,13 @@ action:
             - condition: template
               value_template: "{{ new_temp >= current_setpoint and temp_change > 0 }}"
       sequence:
-        # Reset consecutive failure counter - system is working properly
+        # Note: Heating failure counter is NOT reset on success - only weekly reset
+        # This allows tracking of intermittent problems over time
+        
+        # Reset deadband warning counter on successful cycle
         - service: counter.reset
           target:
-            entity_id: counter.hvac_heating_failures
+            entity_id: counter.hvac_deadband_heating_warnings
         
         # Clear heating deadband warning only if cycle was successful
         # This indicates the warning was either incorrect or the user has addressed it
@@ -418,6 +669,7 @@ action:
             notification_id: "hvac_monitor_heating_deadband_warning"
           continue_on_error: true
 
-# Ensure only one instance of this automation runs at a time
-# Prevents overlapping monitoring cycles that could interfere with each other
-mode: single
+# Allow parallel execution for different trigger types
+# This enables both performance monitoring and long runtime detection to work simultaneously
+mode: parallel
+max: 3

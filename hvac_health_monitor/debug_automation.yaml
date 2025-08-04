@@ -1,5 +1,6 @@
 # Debug automation for HVAC Health Monitor Blueprint
 # This helps you understand hvac_action changes and test blueprint compatibility
+# Updated for version with long runtime detection and separate failure thresholds
 
 automation:
   - alias: "HVAC Debug - HVAC Action Changes"
@@ -21,14 +22,14 @@ automation:
       
       - service: persistent_notification.create
         data:
-          title: "🔧 HVAC Action Debug"
+          title: "HVAC Action Debug"
           message: >
             HVAC Action: {{ trigger.from_state.attributes.hvac_action | default('unknown') }} → {{ trigger.to_state.attributes.hvac_action | default('unknown') }}
             
             {% if trigger.to_state.attributes.hvac_action in ['heating', 'cooling'] %}
-            ✅ Blueprint should trigger on this change!
+            Blueprint should trigger on this change!
             {% else %}
-            ℹ️ Blueprint won't trigger (not heating/cooling)
+            Blueprint won't trigger (not heating/cooling)
             {% endif %}
 
   - alias: "HVAC Debug - All State Changes"
@@ -48,7 +49,7 @@ automation:
             Target Temp: {{ state_attr(trigger.entity_id, 'temperature') }}°C
 
   - alias: "HVAC Debug - Manual Test"
-    description: "Manual test to check blueprint compatibility"
+    description: "Manual test to check blueprint compatibility and helper entities"
     trigger:
       - platform: state
         entity_id: input_boolean.test_hvac_trigger  # Create this helper to test manually
@@ -68,30 +69,210 @@ automation:
         
       - service: persistent_notification.create
         data:
-          title: "✅ HVAC Compatibility Test"
+          title: "HVAC Compatibility Test"
           message: >
-            Thermostat state: {{ states('climate.your_thermostat') }}
+            **Thermostat Status:**
+            State: {{ states('climate.your_thermostat') }}
             HVAC Action: {{ state_attr('climate.your_thermostat', 'hvac_action') }}
             
+            **Helper Entities Status:**
+            Start Temp: {{ states('input_number.hvac_monitor_start_temp') }}
+            Runtime Threshold: {{ states('input_number.hvac_long_runtime_threshold') }}
+            Cooling Failures: {{ states('counter.hvac_cooling_failures') }}
+            Heating Failures: {{ states('counter.hvac_heating_failures') }}
+            Deadband Cooling Warnings: {{ states('counter.hvac_deadband_cooling_warnings') }}
+            Deadband Heating Warnings: {{ states('counter.hvac_deadband_heating_warnings') }}
+            
             {% if state_attr('climate.your_thermostat', 'hvac_action') in ['heating', 'cooling'] %}
-            ✅ Currently active - blueprint would be monitoring!
+            Currently active - blueprint would be monitoring!
             {% elif state_attr('climate.your_thermostat', 'hvac_action') == 'idle' %}
-            ℹ️ System idle - change setpoint to test blueprint trigger
+            System idle - change setpoint to test blueprint trigger
             {% else %}
-            ⚠️ Unknown hvac_action value - may not be compatible
+            Unknown hvac_action value - may not be compatible
             {% endif %}
 
-# Helper entity for manual testing
+  - alias: "HVAC Debug - Helper Entity Check"
+    description: "Verify all required helper entities exist"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.test_hvac_helpers  # Create this helper to test helpers
+        to: 'on'
+    action:
+      - variables:
+          required_entities:
+            - input_number.hvac_monitor_start_temp
+            - input_number.hvac_long_runtime_threshold
+            - counter.hvac_cooling_failures
+            - counter.hvac_heating_failures
+            - counter.hvac_deadband_cooling_warnings
+            - counter.hvac_deadband_heating_warnings
+          missing_entities: >
+            {% set missing = [] %}
+            {% for entity in required_entities %}
+              {% if states(entity) in ['unknown', 'unavailable'] %}
+                {% set missing = missing + [entity] %}
+              {% endif %}
+            {% endfor %}
+            {{ missing }}
+      
+      - service: persistent_notification.create
+        data:
+          title: "Helper Entities Check"
+          message: >
+            **Required Helper Entities (6 total):**
+            
+            {% for entity in required_entities %}
+            {% if states(entity) not in ['unknown', 'unavailable'] %}
+            [OK] {{ entity }}: {{ states(entity) }}
+            {% else %}
+            [MISSING] {{ entity }}: MISSING
+            {% endif %}
+            {% endfor %}
+            
+            {% if missing_entities | length == 0 %}
+            
+            **All helper entities found!** Blueprint should work correctly.
+            {% else %}
+            
+            **Missing {{ missing_entities | length }} entities:** {{ missing_entities | join(', ') }}
+            Create these before using the blueprint.
+            {% endif %}
+
+  - alias: "HVAC Debug - Long Runtime Test"
+    description: "Test long runtime detection logic using thermostat last_changed"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.test_long_runtime  # Create this helper to test long runtime
+        to: 'on'
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.hvac_long_runtime_threshold
+        data:
+          value: 12
+      
+      - delay: "00:00:02"
+      
+      - service: persistent_notification.create
+        data:
+          title: "Long Runtime Test"
+          message: >
+            **New Long Runtime Detection Method:**
+            Using thermostat's last_changed attribute instead of helper entity
+            
+            **Current Status:**
+            Thermostat: climate.your_thermostat
+            HVAC Action: {{ state_attr('climate.your_thermostat', 'hvac_action') }}
+            Last Changed: {{ state_attr('climate.your_thermostat', 'last_changed') }}
+            Runtime Threshold: {{ states('input_number.hvac_long_runtime_threshold') }} hours
+            
+            **Template Test:**
+            {% set thermostat = 'climate.your_thermostat' %}
+            {% set hvac_action = state_attr(thermostat, 'hvac_action') %}
+            {% set threshold_hours = states('input_number.hvac_long_runtime_threshold') | float(12) %}
+            {% if hvac_action == 'cooling' %}
+              {% set cooling_start = state_attr(thermostat, 'last_changed') %}
+              {% if cooling_start %}
+                {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
+            Current runtime: {{ runtime_hours | round(1) }} hours
+            Long runtime detected: {{ runtime_hours >= threshold_hours }}
+              {% else %}
+            No last_changed data available
+              {% endif %}
+            {% else %}
+            System not currently cooling (hvac_action: {{ hvac_action }})
+            {% endif %}
+
+  - alias: "HVAC Debug - Weekly Reset Test"
+    description: "Test weekly heating failure counter reset logic"
+    trigger:
+      - platform: state
+        entity_id: input_boolean.test_weekly_reset  # Create this helper to test weekly reset
+        to: 'on'
+    action:
+      # Simulate some heating failures first
+      - service: counter.increment
+        target:
+          entity_id: counter.hvac_heating_failures
+      - service: counter.increment
+        target:
+          entity_id: counter.hvac_heating_failures
+      - service: counter.increment
+        target:
+          entity_id: counter.hvac_heating_failures
+      
+      - delay: "00:00:02"
+      
+      - service: persistent_notification.create
+        data:
+          title: "Weekly Reset Test - Before"
+          message: >
+            **Weekly Heating Failure Tracking:**
+            Current heating failures this week: {{ states('counter.hvac_heating_failures') }}
+            Current day of week: {{ now().strftime('%A') }} ({{ now().weekday() }})
+            Note: Sunday = 6, Monday = 0
+            
+            **Test Logic:**
+            The blueprint resets heating failures every Sunday at midnight.
+            Cooling failures reset after each successful cycle (consecutive tracking).
+            Heating failures accumulate all week (intermittent problem detection).
+      
+      # Test the reset logic
+      - service: counter.reset
+        target:
+          entity_id: counter.hvac_heating_failures
+      
+      - delay: "00:00:01"
+      
+      - service: persistent_notification.create
+        data:
+          title: "Weekly Reset Test - After"
+          message: >
+            **Reset Complete:**
+            Heating failures after reset: {{ states('counter.hvac_heating_failures') }}
+            
+            **In the real blueprint:**
+            - This happens automatically every Sunday at 00:00:00
+            - Tracks intermittent gas furnace problems (dirty flame sensor, etc.)
+            - Successful heating cycles do NOT reset the counter
+            - Weekly tracking catches declining performance patterns
+
+# Helper entities for manual testing
 input_boolean:
   test_hvac_trigger:
     name: "Test HVAC Trigger"
     icon: mdi:test-tube
+    
+  test_hvac_helpers:
+    name: "Test HVAC Helpers"
+    icon: mdi:format-list-checks
+    
+  test_long_runtime:
+    name: "Test Long Runtime Detection"
+    icon: mdi:clock-alert
+
+  test_weekly_reset:
+    name: "Test Weekly Reset"
+    icon: mdi:calendar-refresh
 
 # Instructions for use:
 # 1. Replace 'climate.your_thermostat' with your actual thermostat entity ID
-# 2. Create the input_boolean helper above (or via UI)
+# 2. Create the input_boolean helpers above (or via UI)
 # 3. Add these automations to your Home Assistant
 # 4. Test by:
-#    - Changing thermostat setpoint to trigger hvac_action changes
-#    - Toggle the "Test HVAC Trigger" helper to run compatibility check
+#    - Toggle "Test HVAC Trigger" → Check thermostat compatibility and helper status
+#    - Toggle "Test HVAC Helpers" → Verify all 6 required helper entities exist
+#    - Toggle "Test Long Runtime Detection" → Test new last_changed based runtime logic
+#    - Toggle "Test Weekly Reset" → Test heating failure weekly reset functionality
+#    - Change thermostat setpoint to trigger hvac_action changes (heating/cooling/idle)
 # 5. Watch for notifications and check logbook for detailed information
+# 6. Use automation traces in Home Assistant for detailed debugging
+# 
+# New Features in Latest Version:
+# - Long runtime detection using thermostat's last_changed attribute (no helper entity needed)
+# - Weekly heating failure tracking (intermittent problem detection)
+# - Cooling failures still use consecutive tracking (immediate problem detection)
+# - 6 helper entities total (reduced from 7, removed input_datetime.hvac_cooling_start_time)
+# - Parallel execution mode for multiple trigger types
+# - Enhanced deadband detection with smart thermostat support
+# - Automatic weekly reset every Sunday at midnight for heating failures

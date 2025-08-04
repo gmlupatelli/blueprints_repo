@@ -18,11 +18,13 @@
 ```
 
 ### 2. **Missing Helper Entities**
-The blueprint REQUIRES these 4 entities to exist:
+The blueprint REQUIRES these 6 entities to exist:
 - `input_number.hvac_monitor_start_temp`
-- `input_datetime.hvac_monitor_start_time` 
+- `input_number.hvac_long_runtime_threshold`
 - `counter.hvac_cooling_failures`
 - `counter.hvac_heating_failures`
+- `counter.hvac_deadband_cooling_warnings`
+- `counter.hvac_deadband_heating_warnings`
 
 **Create them manually before using the blueprint!**
 
@@ -44,9 +46,12 @@ Blueprint only triggers on hvac_action CHANGES to heating/cooling:
 # In Home Assistant, go to Developer Tools > States
 # Search for these entities:
 input_number.hvac_monitor_start_temp
-input_datetime.hvac_monitor_start_time
+input_number.hvac_long_runtime_threshold
+input_number.hvac_long_runtime_threshold
 counter.hvac_cooling_failures
 counter.hvac_heating_failures
+counter.hvac_deadband_cooling_warnings
+counter.hvac_deadband_heating_warnings
 ```
 
 **If these entities don't exist, create them using one of these methods:**
@@ -61,13 +66,14 @@ input_number:
     step: 0.1
     unit_of_measurement: "°C"
     icon: mdi:thermometer
-
-input_datetime:
-  hvac_monitor_start_time:
-    name: "HVAC Monitor Start Time"
-    has_date: true
-    has_time: true
-    icon: mdi:clock-start
+    
+  hvac_long_runtime_threshold:
+    name: "HVAC Long Runtime Threshold"
+    min: 4
+    max: 24
+    step: 1
+    unit_of_measurement: "hours"
+    icon: mdi:clock-alert
 
 counter:
   hvac_cooling_failures:
@@ -79,6 +85,16 @@ counter:
     name: "HVAC Heating Failures"
     step: 1
     icon: mdi:fire-alert
+
+  hvac_deadband_cooling_warnings:
+    name: "HVAC Deadband Cooling Warnings"
+    step: 1
+    icon: mdi:snowflake-alert
+
+  hvac_deadband_heating_warnings:
+    name: "HVAC Deadband Heating Warnings"
+    step: 1
+    icon: mdi:fire-alert
 ```
 
 #### Method 2: Create via UI
@@ -87,13 +103,18 @@ counter:
    - Name: "HVAC Monitor Start Temperature"
    - Min: -50, Max: 50, Step: 0.1
    - Unit: °C
-3. Create "Date and/or time" helper: `input_datetime.hvac_monitor_start_time`
-   - Name: "HVAC Monitor Start Time"
-   - Enable both date and time
+3. Create "Number" helper: `input_number.hvac_long_runtime_threshold`
+   - Name: "HVAC Long Runtime Threshold"
+   - Min: 4, Max: 24, Step: 1
+   - Unit: hours
 4. Create "Counter" helper: `counter.hvac_cooling_failures`
    - Name: "HVAC Cooling Failures"
 5. Create "Counter" helper: `counter.hvac_heating_failures`
    - Name: "HVAC Heating Failures"
+6. Create "Counter" helper: `counter.hvac_deadband_cooling_warnings`
+   - Name: "HVAC Deadband Cooling Warnings"
+7. Create "Counter" helper: `counter.hvac_deadband_heating_warnings`
+   - Name: "HVAC Deadband Heating Warnings"
 
 ### Step 2: Check Thermostat HVAC Action
 ```bash
@@ -107,15 +128,46 @@ counter:
 # this blueprint will NOT work with your thermostat!
 ```
 
-### Step 3: Test the Trigger
+### Step 3: New Features Overview
+The blueprint now includes these monitoring capabilities:
+
+#### Performance Monitoring
+- **Different failure detection strategies** for different HVAC types:
+  - **AC Cooling**: Consecutive failures (default: 1) - immediate detection of persistent problems
+  - **Gas Furnace Heating**: Weekly failure count (default: 4 per week) - catches intermittent issues
+- **System-specific runtime parameters** (AC: 90min, Gas Furnace: 30min)
+- **Smart deadband detection** with configurable warning thresholds
+- **Weekly reset cycle** for heating failures (every Sunday at midnight)
+
+#### Long Runtime Detection
+- **Template trigger** monitors continuous AC operation using thermostat's `last_changed` attribute
+- **Configurable threshold** (default: 12 hours)
+- **Real-time alerts** when AC runs too long without stopping
+- **Automatic cleanup** when system stops
+- **No helper entity dependency** for start time tracking (uses built-in state tracking)
+
+#### Why Weekly Tracking for Heating?
+Gas furnace problems (dirty flame sensor, pressure switch issues) are often **intermittent** - they work sometimes but fail randomly. Weekly tracking catches declining performance that consecutive failure detection would miss:
+
+**Example**: Dirty flame sensor over one week:
+- Monday: Success, Fail, Success → Old logic: Reset to 0 ✗
+- Tuesday: Fail, Success, Fail, Success → Old logic: Reset to 0 ✗  
+- Wednesday: Success, Fail → Old logic: Reset to 0 ✗
+- **Result**: Old = No alert, Weekly = 5 failures = Alert! ✓
+
+This approach aligns with HVAC maintenance schedules and catches problems before complete system failure.
+
+### Step 4: Test the Trigger
 ```bash
 # Method 1: Force hvac_action change by adjusting thermostat setpoint
 # Method 2: Use the debug automation provided
 # Method 3: Check automation traces in Settings > Automations > [Your Blueprint] > Traces
 # Method 4: Watch for hvac_action changes in Developer Tools > Events (state_changed events)
+# Method 5: Test long runtime detection by setting a low threshold (4 hours) temporarily
+# Method 6: Test weekly reset by manually triggering time-based automation (Developer Tools > Services)
 ```
 
-### Step 4: Manual Test Template
+### Step 5: Manual Test Template
 Go to Developer Tools > Template and test:
 ```yaml
 # Replace 'climate.your_thermostat' with your actual entity
@@ -128,7 +180,7 @@ Go to Developer Tools > Template and test:
 ## Common Fixes
 
 ### ⚠️ IMPORTANT: Blueprint Now Uses hvac_action
-The blueprint has been updated to monitor `hvac_action` attribute changes instead of `state` changes. The fixes below are for reference only - **most users should not need to modify the blueprint**.
+The blueprint uses `hvac_action` attribute changes to monitor the state. The fixes below are for reference only - **most users should not need to modify the blueprint**.
 
 ### Fix 1: If hvac_action Reports Different Values
 If your thermostat's hvac_action uses different values (rare), modify the blueprint trigger:
@@ -142,33 +194,6 @@ trigger:
       - 'cooling'     # Standard value  
       - 'heat'        # If your thermostat uses this instead
       - 'cool'        # If your thermostat uses this instead
-```
-
-### Fix 2: Thermostat Missing hvac_action (NOT RECOMMENDED)
-If your thermostat doesn't have hvac_action, you could try using state instead (less reliable):
-```yaml
-trigger:
-  - platform: state
-    entity_id: !input thermostat
-    to:
-      - 'heat'
-      - 'cool'
-      - 'heating'
-      - 'cooling'
-```
-**Note**: This approach is less reliable and may cause false triggers.
-
-### Fix 3: Alternative Trigger for Unusual Thermostats
-For thermostats with non-standard behavior:
-```yaml
-trigger:
-  - platform: state
-    entity_id: !input thermostat
-    attribute: hvac_action
-    from: 'idle'
-    to:
-      - 'heating'
-      - 'cooling'
 ```
 
 ## Verification Commands
@@ -185,7 +210,7 @@ After setup, verify everything works:
 **Before using this blueprint, verify your thermostat compatibility:**
 
 ✅ **Compatible thermostats have:**
-- `hvac_action` attribute that reports 'heating', 'cooling', 'idle'
+- `hvac_action` attribute that reports 'heating', 'cooling'
 - Reliable state changes when system starts/stops
 
 ❌ **Incompatible thermostats:**
