@@ -278,8 +278,7 @@ action:
             notification_id: "hvac_monitor_long_runtime"
             title: "AC Long Runtime Alert"
             message: >
-              {% set thermostat = !input thermostat %}
-              {% set cooling_start = state_attr(thermostat, 'last_changed') %}
+              {% set cooling_start = state_attr(thermostat_entity, 'last_changed') %}
               {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
               AC has been running continuously for {{ runtime_hours | round(1) }} hours 
               (started {{ cooling_start.strftime('%Y-%m-%d %H:%M:%S') }}).
@@ -294,8 +293,7 @@ action:
           data:
             name: "HVAC Health Monitor"
             message: >
-              {% set thermostat = !input thermostat %}
-              {% set cooling_start = state_attr(thermostat, 'last_changed') %}
+              {% set cooling_start = state_attr(thermostat_entity, 'last_changed') %}
               {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
               AC long runtime detected: {{ runtime_hours | round(1) }} hours continuous operation. 
               Possible system efficiency issues.
