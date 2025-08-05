@@ -102,6 +102,7 @@ automation:
           required_entities:
             - input_number.hvac_monitor_start_temp
             - input_number.hvac_long_runtime_threshold
+            - input_datetime.hvac_cooling_start_time
             - counter.hvac_cooling_failures
             - counter.hvac_heating_failures
             - counter.hvac_deadband_cooling_warnings
@@ -119,7 +120,7 @@ automation:
         data:
           title: "Helper Entities Check"
           message: >
-            **Required Helper Entities (6 total):**
+            **Required Helper Entities (7 total):**
             
             {% for entity in required_entities %}
             {% if states(entity) not in ['unknown', 'unavailable'] %}
@@ -158,12 +159,12 @@ automation:
           title: "Long Runtime Test"
           message: >
             **New Long Runtime Detection Method:**
-            Using thermostat's last_changed attribute instead of helper entity
+            Using precise timestamp storage in input_datetime.hvac_cooling_start_time helper
             
             **Current Status:**
             Thermostat: climate.your_thermostat
             HVAC Action: {{ state_attr('climate.your_thermostat', 'hvac_action') }}
-            Last Changed: {{ state_attr('climate.your_thermostat', 'last_changed') }}
+            Cooling Start Time: {{ states('input_datetime.hvac_cooling_start_time') }}
             Runtime Threshold: {{ states('input_number.hvac_long_runtime_threshold') }} hours
             
             **Template Test:**
@@ -171,13 +172,14 @@ automation:
             {% set hvac_action = state_attr(thermostat, 'hvac_action') %}
             {% set threshold_hours = states('input_number.hvac_long_runtime_threshold') | float(12) %}
             {% if hvac_action == 'cooling' %}
-              {% set cooling_start = state_attr(thermostat, 'last_changed') %}
-              {% if cooling_start %}
-                {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
+              {% set cooling_start_time = states('input_datetime.hvac_cooling_start_time') %}
+              {% if cooling_start_time != 'unknown' and cooling_start_time != 'unavailable' %}
+                {% set start_time = strptime(cooling_start_time, '%Y-%m-%d %H:%M:%S') %}
+                {% set runtime_hours = (now() - start_time).total_seconds() / 3600 %}
             Current runtime: {{ runtime_hours | round(1) }} hours
             Long runtime detected: {{ runtime_hours >= threshold_hours }}
               {% else %}
-            No last_changed data available
+            No cooling start time data available
               {% endif %}
             {% else %}
             System not currently cooling (hvac_action: {{ hvac_action }})
@@ -261,18 +263,19 @@ input_boolean:
 # 3. Add these automations to your Home Assistant
 # 4. Test by:
 #    - Toggle "Test HVAC Trigger" → Check thermostat compatibility and helper status
-#    - Toggle "Test HVAC Helpers" → Verify all 6 required helper entities exist
-#    - Toggle "Test Long Runtime Detection" → Test new last_changed based runtime logic
+#    - Toggle "Test HVAC Helpers" → Verify all 7 required helper entities exist
+#    - Toggle "Test Long Runtime Detection" → Test new precise timestamp tracking runtime logic
 #    - Toggle "Test Weekly Reset" → Test heating failure weekly reset functionality
 #    - Change thermostat setpoint to trigger hvac_action changes (heating/cooling/idle)
 # 5. Watch for notifications and check logbook for detailed information
 # 6. Use automation traces in Home Assistant for detailed debugging
 # 
 # New Features in Latest Version:
-# - Long runtime detection using thermostat's last_changed attribute (no helper entity needed)
+# - Long runtime detection using precise timestamp storage in input_datetime helper
 # - Weekly heating failure tracking (intermittent problem detection)
 # - Cooling failures still use consecutive tracking (immediate problem detection)
-# - 6 helper entities total (reduced from 7, removed input_datetime.hvac_cooling_start_time)
+# - 7 helper entities total (added input_datetime.hvac_cooling_start_time for accurate timing)
 # - Parallel execution mode for multiple trigger types
 # - Enhanced deadband detection with smart thermostat support
 # - Automatic weekly reset every Sunday at midnight for heating failures
+# - More accurate runtime calculations using last_updated timestamps

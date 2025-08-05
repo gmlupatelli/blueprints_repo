@@ -18,9 +18,10 @@
 ```
 
 ### 2. **Missing Helper Entities**
-The blueprint REQUIRES these 6 entities to exist:
+The blueprint REQUIRES these 7 entities to exist:
 - `input_number.hvac_monitor_start_temp`
 - `input_number.hvac_long_runtime_threshold`
+- `input_datetime.hvac_cooling_start_time`
 - `counter.hvac_cooling_failures`
 - `counter.hvac_heating_failures`
 - `counter.hvac_deadband_cooling_warnings`
@@ -47,7 +48,7 @@ Blueprint only triggers on hvac_action CHANGES to heating/cooling:
 # Search for these entities:
 input_number.hvac_monitor_start_temp
 input_number.hvac_long_runtime_threshold
-input_number.hvac_long_runtime_threshold
+input_datetime.hvac_cooling_start_time
 counter.hvac_cooling_failures
 counter.hvac_heating_failures
 counter.hvac_deadband_cooling_warnings
@@ -74,6 +75,13 @@ input_number:
     step: 1
     unit_of_measurement: "hours"
     icon: mdi:clock-alert
+
+input_datetime:
+  hvac_cooling_start_time:
+    name: "HVAC Cooling Start Time"
+    has_date: true
+    has_time: true
+    icon: mdi:clock-start
 
 counter:
   hvac_cooling_failures:
@@ -107,13 +115,17 @@ counter:
    - Name: "HVAC Long Runtime Threshold"
    - Min: 4, Max: 24, Step: 1
    - Unit: hours
-4. Create "Counter" helper: `counter.hvac_cooling_failures`
+4. Create "Date and Time" helper: `input_datetime.hvac_cooling_start_time`
+   - Name: "HVAC Cooling Start Time"
+   - Date: Enabled
+   - Time: Enabled
+5. Create "Counter" helper: `counter.hvac_cooling_failures`
    - Name: "HVAC Cooling Failures"
-5. Create "Counter" helper: `counter.hvac_heating_failures`
+6. Create "Counter" helper: `counter.hvac_heating_failures`
    - Name: "HVAC Heating Failures"
-6. Create "Counter" helper: `counter.hvac_deadband_cooling_warnings`
+7. Create "Counter" helper: `counter.hvac_deadband_cooling_warnings`
    - Name: "HVAC Deadband Cooling Warnings"
-7. Create "Counter" helper: `counter.hvac_deadband_heating_warnings`
+8. Create "Counter" helper: `counter.hvac_deadband_heating_warnings`
    - Name: "HVAC Deadband Heating Warnings"
 
 ### Step 2: Check Thermostat HVAC Action

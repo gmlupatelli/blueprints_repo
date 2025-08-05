@@ -10,14 +10,14 @@ blueprint:
     heating problems are tracked weekly to catch intermittent issues like dirty flame sensors 
     and pressure switch faults.
 
-    SETUP REQUIRED: This blueprint requires 6 Helper Entities and your thermostat 
+    SETUP REQUIRED: This blueprint requires 7 Helper Entities and your thermostat 
     must have an 'hvac_action' attribute. See the README.md file in this folder for 
     complete setup instructions and troubleshooting guide.
     
     Required Helper Entities: "input_number.hvac_monitor_start_temp", 
-    "input_number.hvac_long_runtime_threshold", "counter.hvac_cooling_failures", 
-    "counter.hvac_heating_failures", "counter.hvac_deadband_cooling_warnings", 
-    "counter.hvac_deadband_heating_warnings".
+    "input_number.hvac_long_runtime_threshold", "input_datetime.hvac_cooling_start_time",
+    "counter.hvac_cooling_failures", "counter.hvac_heating_failures", 
+    "counter.hvac_deadband_cooling_warnings", "counter.hvac_deadband_heating_warnings".
   domain: automation
   source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/hvac_health_monitor/hvac_health_monitor.yaml
 
@@ -93,7 +93,7 @@ blueprint:
         problems while allowing normal operation.
         
         If tolerance is too high, you'll get false failures. If too low, you might miss real issues.
-      default: 0.3
+      default: 0.4
       selector:
         number:
           min: 0.1
@@ -239,15 +239,18 @@ trigger:
     to:
       - 'heating'     # Monitor when heating starts
       - 'cooling'     # Monitor when cooling starts
+    for:
+      minutes: 1      # Wait 1 minute for thermostat state to stabilize after setpoint changes
   
   # Template trigger for long runtime detection
   - platform: template
     value_template: >
       {% set hvac_action = state_attr(thermostat_entity, 'hvac_action') %}
       {% if hvac_action == 'cooling' %}
-        {% set cooling_start = states[thermostat_entity].last_changed %}
-        {% if cooling_start %}
-          {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
+        {% set cooling_start_time = states('input_datetime.hvac_cooling_start_time') %}
+        {% if cooling_start_time != 'unknown' and cooling_start_time != 'unavailable' %}
+          {% set start_time = strptime(cooling_start_time, '%Y-%m-%d %H:%M:%S') %}
+          {% set runtime_hours = (now() - start_time).total_seconds() / 3600 %}
           {{ runtime_hours >= max_ac_continuous_runtime_hours }}
         {% else %}
           false
@@ -256,7 +259,8 @@ trigger:
         false
       {% endif %}
 
-  # Weekly reset trigger for heating failure counter (Sundays at midnight)
+  # Weekly reset trigger for heating failure counter (daily at midnight)
+  # Week day is set to Sunday as a condition in the HANDLE WEEKLY HEATING FAILURE RESET section
   - platform: time
     at: "00:00:00"
 
@@ -276,10 +280,15 @@ action:
             notification_id: "hvac_monitor_long_runtime"
             title: "AC Long Runtime Alert"
             message: >
-              {% set cooling_start = state_attr(thermostat_entity, 'last_changed') %}
-              {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
-              AC has been running continuously for {{ runtime_hours | round(1) }} hours 
-              (started {{ cooling_start.strftime('%Y-%m-%d %H:%M:%S') }}).
+              {% set cooling_start_time = states('input_datetime.hvac_cooling_start_time') %}
+              {% if cooling_start_time != 'unknown' and cooling_start_time != 'unavailable' %}
+                {% set start_time = strptime(cooling_start_time, '%Y-%m-%d %H:%M:%S') %}
+                {% set runtime_hours = (now() - start_time).total_seconds() / 3600 %}
+                AC has been running continuously for {{ runtime_hours | round(1) }} hours 
+                (started {{ cooling_start_time }}).
+              {% else %}
+                AC has been running continuously for an extended period.
+              {% endif %}
               
               Extended runtime may indicate: Low refrigerant, dirty condenser coils, 
               blocked airflow, undersized system, or extreme weather conditions.
@@ -291,9 +300,14 @@ action:
           data:
             name: "HVAC Health Monitor"
             message: >
-              {% set cooling_start = state_attr(thermostat_entity, 'last_changed') %}
-              {% set runtime_hours = (now() - cooling_start).total_seconds() / 3600 %}
-              AC long runtime detected: {{ runtime_hours | round(1) }} hours continuous operation. 
+              {% set cooling_start_time = states('input_datetime.hvac_cooling_start_time') %}
+              {% if cooling_start_time != 'unknown' and cooling_start_time != 'unavailable' %}
+                {% set start_time = strptime(cooling_start_time, '%Y-%m-%d %H:%M:%S') %}
+                {% set runtime_hours = (now() - start_time).total_seconds() / 3600 %}
+                AC long runtime detected: {{ runtime_hours | round(1) }} hours continuous operation. 
+              {% else %}
+                AC long runtime detected: Extended continuous operation. 
+              {% endif %}
               Possible system efficiency issues.
         
         # Execute user-defined actions for long runtime
@@ -309,8 +323,9 @@ action:
     - conditions:
         - condition: template
           value_template: "{{ trigger.platform == 'time' }}"
-        - condition: template
-          value_template: "{{ now().weekday() == 6 }}"  # Sunday = 6
+        - condition: time
+          weekday:
+            - sun
       sequence:
         # Reset heating failure counter for new week
         - service: counter.reset
@@ -336,6 +351,13 @@ action:
           data:
             value: "{{ max_ac_continuous_runtime_hours }}"
 
+        # Store the cooling start time for runtime calculations
+        - service: input_datetime.set_datetime
+          target:
+            entity_id: input_datetime.hvac_cooling_start_time
+          data:
+            datetime: "{{ trigger.to_state.last_updated.strftime('%Y-%m-%d %H:%M:%S') }}"
+
   # === PHASE 0: VALIDATE TRIGGER ===
   # Ensure this automation was triggered by a proper hvac_action change to heating/cooling, not manually
   - condition: template
@@ -344,7 +366,7 @@ action:
   # === PHASE 1: CAPTURE INITIAL CONDITIONS ===
   # Record the starting conditions when HVAC begins operating
   - variables:
-      hvac_action: "{{ trigger.to_state.attributes.hvac_action }}"                        # Store which hvac_action triggered (heating/cooling)
+      hvac_action: "{{ trigger.to_state.attributes.hvac_action }}"                           # Store which hvac_action triggered (heating/cooling)
       current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float(0) }}"  # Current room temperature
       target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float(0) }}"           # Thermostat setpoint
 

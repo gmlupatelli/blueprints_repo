@@ -84,14 +84,15 @@ This blueprint is optimized for a heat pump AC and gas furnace system.
 - Monitors thermostat heating and cooling effectiveness by measuring temperature changes
 - Intelligent deadband detection with user warnings for optimal configuration
 - Dual failure tracking strategies: consecutive for AC cooling, weekly for gas furnace heating
-- Long runtime detection for AC systems using last_changed attribute
+- Long runtime detection for AC systems using precise timestamp tracking
 - Configurable runtime monitoring and temperature tolerances
 - Persistent notifications and detailed logbook entries
 - Separate customizable actions for heating and cooling issues
 - Designed for central HVAC systems (inspired by Nest Thermostat health checks)
-- **Requirements:** 6 helper entities must be created manually:
+- **Requirements:** 7 helper entities must be created manually:
   - `input_number.hvac_monitor_start_temp`
   - `input_number.hvac_long_runtime_threshold`
+  - `input_datetime.hvac_cooling_start_time`
   - `counter.hvac_cooling_failures`
   - `counter.hvac_heating_failures`
   - `counter.hvac_deadband_cooling_warnings`
