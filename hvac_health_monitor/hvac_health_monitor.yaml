@@ -161,7 +161,7 @@ blueprint:
         How many consecutive cooling failures before triggering alert.
         AC problems often manifest immediately, so a lower threshold helps detect issues quickly.
         This counter is reset after a successful cooling cycle.
-      default: 1
+      default: 2
       selector:
         number:
           min: 1
