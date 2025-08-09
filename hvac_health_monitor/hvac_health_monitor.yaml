@@ -37,8 +37,8 @@ blueprint:
         entity:
           domain: climate
 
-    cooling_minimum_runtime:
-      name: Cooling Minimum Runtime Before Check
+    cooling_runtime:
+      name: Cooling Runtime Before Check
       description: >
         How long AC should run before checking effectiveness (in minutes).
         
@@ -65,8 +65,8 @@ blueprint:
           max: 24
           unit_of_measurement: hours
 
-    heating_minimum_runtime:
-      name: Heating Minimum Runtime Before Check
+    heating_runtime:
+      name: Heating Runtime Before Check
       description: >
         How long gas furnace should run before checking effectiveness (in minutes).
         
@@ -93,11 +93,11 @@ blueprint:
         problems while allowing normal operation.
         
         If tolerance is too high, you'll get false failures. If too low, you might miss real issues.
-      default: 0.4
+      default: 0.2
       selector:
         number:
           min: 0.1
-          max: 2.0
+          max: 1.0
           step: 0.1
           unit_of_measurement: "°C"
 
@@ -114,11 +114,11 @@ blueprint:
         problems while allowing normal operation.
         
         If tolerance is too high, you'll get false failures. If too low, you might miss real issues.
-      default: 0.4
+      default: 0.2
       selector:
         number:
           min: 0.1
-          max: 2.0
+          max: 1.0
           step: 0.1
           unit_of_measurement: "°C"
 
@@ -179,7 +179,7 @@ blueprint:
       selector:
         number:
           min: 1
-          max: 15
+          max: 10
 
     deadband_warning_threshold:
       name: Deadband Warning Threshold
@@ -216,8 +216,8 @@ blueprint:
 # Store user inputs as variables for easier reference throughout the automation
 variables:
   thermostat_entity: !input thermostat
-  cooling_min_runtime: !input cooling_minimum_runtime
-  heating_min_runtime: !input heating_minimum_runtime
+  cooling_runtime: !input cooling_runtime
+  heating_runtime: !input heating_runtime
   cooling_temp_tolerance: !input cooling_temperature_tolerance
   heating_temp_tolerance: !input heating_temperature_tolerance
   max_cooling_failures: !input max_consecutive_cooling_failures
@@ -492,9 +492,9 @@ action:
   - delay:
       minutes: >
         {% if hvac_action == 'cooling' %}
-          {{ cooling_min_runtime }}
+          {{ cooling_runtime }}
         {% else %}
-          {{ heating_min_runtime }}
+          {{ heating_runtime }}
         {% endif %}
 
   # === PHASE 3: VERIFY SYSTEM IS STILL AVAILABLE ===
@@ -515,9 +515,9 @@ action:
       current_setpoint: "{{ state_attr(thermostat_entity, 'temperature') | float(0) }}"      # Current thermostat setpoint
       actual_runtime: >
         {% if hvac_action == 'cooling' %}
-          {{ cooling_min_runtime }}
+          {{ cooling_runtime }}
         {% else %}
-          {{ heating_min_runtime }}
+          {{ heating_runtime }}
         {% endif %}
 
   # === PHASE 5: EVALUATE PERFORMANCE AND TAKE ACTION ===
@@ -526,11 +526,13 @@ action:
     # Check if cooling system failed to cool adequately
     - conditions:
         - condition: template
-          value_template: "{{ hvac_action == 'cooling' }}"                               # This was a cooling cycle
+          value_template: "{{ hvac_action == 'cooling' }}"                                   # This was a cooling cycle
         - condition: template
-          value_template: "{{ enable_cooling_check }}"                                   # User enabled cooling monitoring
+          value_template: "{{ enable_cooling_check }}"                                       # User enabled cooling monitoring
         - condition: template
-          value_template: "{{ temp_change >= -cooling_temp_tolerance }}"                 # Temperature didn't drop enough (failure condition)
+          value_template: "{{ state_attr(thermostat_entity, 'hvac_action') == 'cooling' }}"  # Thermostat is still cooling
+        - condition: template
+          value_template: "{{ temp_change >= -cooling_temp_tolerance }}"                     # Temperature didn't drop enough (failure condition)
       sequence:
         # Increment the consecutive failure counter
         - service: counter.increment
@@ -577,11 +579,13 @@ action:
     # Check if heating system failed to heat adequately
     - conditions:
         - condition: template
-          value_template: "{{ hvac_action == 'heating' }}"                               # This was a heating cycle
+          value_template: "{{ hvac_action == 'heating' }}"                                   # This was a heating cycle
         - condition: template
-          value_template: "{{ enable_heating_check }}"                                   # User enabled heating monitoring
+          value_template: "{{ enable_heating_check }}"                                       # User enabled heating monitoring
         - condition: template
-          value_template: "{{ temp_change <= heating_temp_tolerance }}"                  # Temperature didn't rise enough (failure condition)
+          value_template: "{{ state_attr(thermostat_entity, 'hvac_action') == 'heating' }}"  # Thermostat is still heating
+        - condition: template
+          value_template: "{{ temp_change <= heating_temp_tolerance }}"                      # Temperature didn't rise enough (failure condition)
       sequence:
         # Increment the weekly failure counter
         - service: counter.increment
