@@ -45,7 +45,7 @@ blueprint:
         AC systems work gradually and may take longer to show temperature changes, especially 
         with performance issues like low refrigerant, dirty coils, or compressor problems.
         These issues cause the system to run longer while producing less cooling.
-      default: 90
+      default: 120
       selector:
         number:
           min: 30
@@ -73,11 +73,11 @@ blueprint:
         Gas furnaces heat quickly when working properly. If heating takes much longer,
         it likely indicates safety shutdowns (dirty flame sensor, pressure switch faults)
         that prevent burner operation while the blower continues running.
-      default: 30
+      default: 60
       selector:
         number:
-          min: 15
-          max: 90
+          min: 30
+          max: 240
           unit_of_measurement: minutes
 
     cooling_temperature_tolerance:
