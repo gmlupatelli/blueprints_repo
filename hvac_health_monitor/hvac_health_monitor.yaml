@@ -62,7 +62,7 @@ blueprint:
       selector:
         number:
           min: 4
-          max: 24
+          max: 36
           unit_of_measurement: hours
 
     heating_runtime:
