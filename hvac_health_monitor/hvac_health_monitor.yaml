@@ -230,7 +230,7 @@ variables:
   max_ac_continuous_runtime_hours: !input max_ac_continuous_runtime_hours
 
 # Trigger when thermostat HVAC action changes to heating or cooling
-# Also trigger when AC has been running continuously for too long  
+# Also trigger hourly to check for long runtime issues
 # Also trigger weekly (Sunday midnight) to reset heating failure counter
 trigger:
   - platform: state
@@ -242,23 +242,11 @@ trigger:
     for:
       minutes: 1      # Wait 1 minute for thermostat state to stabilize after setpoint changes
   
-  # Template trigger for long runtime detection
-  - platform: template
-    value_template: >
-      {% set hvac_action = state_attr(thermostat_entity, 'hvac_action') %}
-      {% if hvac_action == 'cooling' %}
-        {% set cooling_start_time = states('input_datetime.hvac_cooling_start_time') %}
-        {% if cooling_start_time != 'unknown' and cooling_start_time != 'unavailable' %}
-          {% set start_time = strptime(cooling_start_time, '%Y-%m-%d %H:%M:%S') %}
-          {% set runtime_hours = (now() - start_time).total_seconds() / 3600 %}
-          {{ runtime_hours >= max_ac_continuous_runtime_hours }}
-        {% else %}
-          false
-        {% endif %}
-      {% else %}
-        false
-      {% endif %}
-
+  # Hourly trigger to check for long runtime (every hour at top of hour)
+  # This replaces the problematic template trigger that caused variable errors
+  - platform: time_pattern
+    minutes: 0
+  
   # Weekly reset trigger for heating failure counter (daily at midnight)
   # Week day is set to Sunday as a condition in the HANDLE WEEKLY HEATING FAILURE RESET section
   - platform: time
@@ -266,14 +254,29 @@ trigger:
 
 action:
   # === HANDLE LONG RUNTIME ALERT ===
-  # Process template trigger for long runtime detection
+  # Process hourly trigger for long runtime detection
+  # This moved from template trigger to action where variables are available
   - choose:
     - conditions:
         - condition: template
-          value_template: "{{ trigger.platform == 'template' }}"
+          value_template: "{{ trigger.platform == 'time_pattern' }}"
         - condition: template
           value_template: "{{ enable_ac_long_runtime_detection }}"
+        - condition: template
+          value_template: "{{ state_attr(thermostat_entity, 'hvac_action') == 'cooling' }}"
       sequence:
+        # Check if we have a valid cooling start time and if runtime exceeds threshold
+        - condition: template
+          value_template: >
+            {% set cooling_start_time = states('input_datetime.hvac_cooling_start_time') %}
+            {% if cooling_start_time != 'unknown' and cooling_start_time != 'unavailable' %}
+              {% set start_time = strptime(cooling_start_time, '%Y-%m-%d %H:%M:%S') %}
+              {% set runtime_hours = (now() - start_time).total_seconds() / 3600 %}
+              {{ runtime_hours >= max_ac_continuous_runtime_hours }}
+            {% else %}
+              false
+            {% endif %}
+        
         # Alert for long runtime
         - service: persistent_notification.create
           data:
