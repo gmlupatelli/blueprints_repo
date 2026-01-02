@@ -1,0 +1,141 @@
+blueprint:
+  name: Unavailable entity detection & notification
+  description: Regularly test all entities' status to check for unavailability.
+  domain: automation
+  source_url: https://github.com/gmlupatelli/blueprints_repo/blob/master/unavailable_entities_notification/unavailable_entities_notification_including.yaml
+  input:
+    time:
+      name: Time to test on
+      description: Test is run at configured time
+      default: "10:00:00"
+      selector:
+        time: {}
+    monday_enabled:
+      name: Monday
+      description: Run test on Monday
+      default: true
+      selector:
+        boolean: {}
+    tuesday_enabled:
+      name: Tuesday
+      description: Run test on Tuesday
+      default: true
+      selector:
+        boolean: {}
+    wednesday_enabled:
+      name: Wednesday
+      description: Run test on Wednesday
+      default: true
+      selector:
+        boolean: {}
+    thursday_enabled:
+      name: Thursday
+      description: Run test on Thursday
+      default: true
+      selector:
+        boolean: {}
+    friday_enabled:
+      name: Friday
+      description: Run test on Friday
+      default: true
+      selector:
+        boolean: {}
+    saturday_enabled:
+      name: Saturday
+      description: Run test on Saturday
+      default: true
+      selector:
+        boolean: {}
+    sunday_enabled:
+      name: Sunday
+      description: Run test on Sunday
+      default: true
+      selector:
+        boolean: {}
+    include:
+      name: Included Entities
+      description:
+        Entities (e.g. smartphone) to include in  detection. Only entities
+        and devices are supported, areas must be expanded!
+      default: {}
+      selector:
+        target: {}
+    actions:
+      name: Actions
+      description:
+        Notifications or similar to be run. {{entities}} is replaced with
+        the names of unavailable entities.
+      selector:
+        action: {}
+variables:
+  monday_enabled: !input monday_enabled
+  tuesday_enabled: !input tuesday_enabled
+  wednesday_enabled: !input wednesday_enabled
+  thursday_enabled: !input thursday_enabled
+  friday_enabled: !input friday_enabled
+  saturday_enabled: !input saturday_enabled
+  sunday_enabled: !input sunday_enabled
+  current_day: "{{ now().weekday() | int }}"
+  include: !input include
+  entities: >
+    {% set result = namespace(unavailable_list=[]) %}
+    {% set targets = namespace(entities=[]) %}
+    {% if include.entity_id is defined %}
+      {% set items = include.entity_id if include.entity_id is iterable and include.entity_id is not string else [include.entity_id] %}
+      {% set targets.entities = targets.entities + items %}
+    {% endif %}
+    {% if include.device_id is defined %}
+      {% set items = include.device_id if include.device_id is iterable and include.device_id is not string else [include.device_id] %}
+      {% for d in items %}
+        {% set targets.entities = targets.entities + device_entities(d) %}
+      {% endfor %}
+    {% endif %}
+    {% set label_list = include.label_id if include.label_id is defined else (include.label if include.label is defined else []) %}
+    {% if label_list %}
+      {% set items = label_list if label_list is iterable and label_list is not string else [label_list] %}
+      {% for l in items %}
+        {% set targets.entities = targets.entities + label_entities(l) %}
+
+        {% for d_lab in label_devices(l) %}
+          {% set targets.entities = targets.entities + device_entities(d_lab) %}
+        {% endfor %}
+
+        {% for a_lab in label_areas(l) %}
+          {% set targets.entities = targets.entities + area_entities(a_lab) %}
+        {% endfor %}
+      {% endfor %}
+    {% endif %}
+
+    {% if include.area_id is defined %}
+      {% set items = include.area_id if include.area_id is iterable and include.area_id is not string else [include.area_id] %}
+      {% for a in items %}
+        {% set targets.entities = targets.entities + area_entities(a) %}
+      {% endfor %}
+    {% endif %}
+
+    {% for eid in targets.entities | unique %}
+      {% if is_state(eid, 'unavailable') %}
+        {% set name = state_attr(eid, 'friendly_name') or eid %}
+        {% set result.unavailable_list = result.unavailable_list + [name] %}
+      {% endif %}
+    {% endfor %}
+    {% if result.unavailable_list | count > 0 -%}
+    ⤵{{"\n- "}}{{ result.unavailable_list | join('\n- ') }}
+    {% endif %}
+trigger:
+  - platform: time
+    at: !input time
+condition:
+  - condition: template
+    value_template:
+      "{{ \n  (current_day == 0 and monday_enabled) or \n  (current_day
+      == 1 and tuesday_enabled) or \n  (current_day == 2 and wednesday_enabled) or\n
+      \ (current_day == 3 and thursday_enabled) or \n  (current_day == 4 and friday_enabled)
+      or\n  (current_day == 5 and saturday_enabled) or\n  (current_day == 6 and sunday_enabled)\n}}"
+  - condition: template
+    value_template: "{{ entities is defined and entities != '' and entities | trim | length > 0 }}"
+action:
+  - choose: []
+    default: !input actions
+mode: single
+max_exceeded: silent
