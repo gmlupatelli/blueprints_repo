@@ -9,57 +9,71 @@ blueprint:
   # === BLUEPRINT INPUTS ===
   # Configure when and how to check for unavailable entities
   input:
-    time:
-      name: Time to test on
-      description: Test is run at configured time
-      default: '10:00:00'
-      selector:
-        time: {}
+    default_inputs:
+      name: Default inputs
+      collapsed: true
+      input:
+        time:
+          name: Time to test on
+          description: Test is run at configured time
+          default: '10:00:00'
+          selector:
+            time: {}
     
-    # === WEEKDAY SCHEDULE CONFIGURATION ===
-    # Select which days of the week to run the unavailable entity check
-    monday_enabled:
-      name: 'Monday'
-      description: 'Run test on Monday'
-      default: True
-      selector:
-        boolean:
-    tuesday_enabled:
-      name: Tuesday
-      description: 'Run test on Tuesday'
-      default: True
-      selector:
-        boolean:
-    wednesday_enabled:
-      name: Wednesday
-      description: 'Run test on Wednesday'
-      default: True
-      selector:
-        boolean:
-    thursday_enabled:
-      name: Thursday
-      description: 'Run test on Thursday'
-      default: True
-      selector:
-        boolean:
-    friday_enabled:
-      name: Friday
-      description: 'Run test on Friday'
-      default: True
-      selector:
-        boolean:
-    saturday_enabled:
-      name: Saturday
-      description: 'Run test on Saturday'
-      default: True
-      selector:
-        boolean:
-    sunday_enabled:
-      name: Sunday
-      description: 'Run test on Sunday'
-      default: True
-      selector:
-        boolean:
+        # === WEEKDAY SCHEDULE CONFIGURATION ===
+        # Select which days of the week to run the unavailable entity check
+        monday_enabled:
+          name: 'Monday'
+          description: 'Run test on Monday'
+          default: True
+          selector:
+            boolean:
+        tuesday_enabled:
+          name: Tuesday
+          description: 'Run test on Tuesday'
+          default: True
+          selector:
+            boolean:
+        wednesday_enabled:
+          name: Wednesday
+          description: 'Run test on Wednesday'
+          default: True
+          selector:
+            boolean:
+        thursday_enabled:
+          name: Thursday
+          description: 'Run test on Thursday'
+          default: True
+          selector:
+            boolean:
+        friday_enabled:
+          name: Friday
+          description: 'Run test on Friday'
+          default: True
+          selector:
+            boolean:
+        saturday_enabled:
+          name: Saturday
+          description: 'Run test on Saturday'
+          default: True
+          selector:
+            boolean:
+        sunday_enabled:
+          name: Sunday
+          description: 'Run test on Sunday'
+          default: True
+          selector:
+            boolean:
+    additional_trigger_options:
+      name: Additional trigger options
+      collapsed: true
+      input:
+        additional_triggers:
+          name: Additional triggers
+          description: Add any extra triggers (e.g., device state changes) directly from the automation UI.
+          default: []
+          selector:
+            trigger: {}
 
     # === ENTITY GROUPING CONFIGURATION ===
     group_device_entities:
@@ -82,7 +96,13 @@ blueprint:
     # Define what happens when unavailable entities are detected
     actions:
       name: Actions
-      description: Notifications or similar to be run. {{entities}} is replaced with a formatted list of friendly names (with fully unavailable devices grouped if enabled), and {{raw_entity_ids}} is replaced with a formatted list of raw entity IDs. {{unformatted_entities}} and {{unformatted_raw_entity_ids}} are also available as unformatted lists for advanced templating.
+      description: >
+        Notifications or similar to be run.<br>
+        Available variables for advanced templating:<br>
+        {{entities}}: Formatted list of the names of unavailable entities (or grouped device names).<br>
+        {{unformatted_entities}}: Unformatted list of the names of unavailable entities (or grouped device names).<br>
+        {{raw_entity_ids}}: Formatted list of raw entity IDs (e.g., sensor.device).<br>
+        {{unformatted_raw_entity_ids}}: Formatted list of raw entity IDs.
       selector:
         action:
 
@@ -224,8 +244,9 @@ variables:
 # === AUTOMATION TRIGGERS ===
 # Run at the specified time each day
 trigger:
-  - platform: time
+  - trigger: time
     at: !input 'time'
+  - triggers: !input additional_triggers
 
 # === AUTOMATION CONDITIONS ===
 # Only run if it's a selected weekday and there are unavailable entities
