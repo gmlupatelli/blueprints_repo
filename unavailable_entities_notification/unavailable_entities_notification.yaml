@@ -207,7 +207,11 @@ variables:
 
       {{ grouped_output.items }}
     {% else %}
-      {{ unformatted_raw_entity_ids | map('extract', states, 'name') | list }}
+      {% set ungrouped_output = namespace(items=[]) %}
+      {% for entity_id in unformatted_raw_entity_ids %}
+        {% set ungrouped_output.items = ungrouped_output.items + [states[entity_id].name | default(entity_id)] %}
+      {% endfor %}
+      {{ ungrouped_output.items }}
     {% endif %}
 
   # Format entities for notification template
@@ -230,10 +234,10 @@ condition:
   - condition: template
     value_template: >-
         {{ 
-          (current_day == 0 and monday_enabled) or 
-          (current_day == 1 and tuesday_enabled) or 
+          (current_day == 0 and monday_enabled) or
+          (current_day == 1 and tuesday_enabled) or
           (current_day == 2 and wednesday_enabled) or
-          (current_day == 3 and thursday_enabled) or 
+          (current_day == 3 and thursday_enabled) or
           (current_day == 4 and friday_enabled) or
           (current_day == 5 and saturday_enabled) or
           (current_day == 6 and sunday_enabled)
