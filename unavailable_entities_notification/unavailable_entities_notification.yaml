@@ -61,6 +61,14 @@ blueprint:
       selector:
         boolean:
 
+    # === ENTITY GROUPING CONFIGURATION ===
+    group_device_entities:
+      name: Group device entities
+      description: Automatically collapse all entities belonging to a device into a single "All entities from <Device Name>" entry if all of that device's entities are unavailable.
+      default: False
+      selector:
+        boolean:
+
     # === EXCLUSION CONFIGURATION ===
     # Define which entities to exclude from unavailability monitoring
     exclude:
@@ -74,7 +82,7 @@ blueprint:
     # Define what happens when unavailable entities are detected
     actions:
       name: Actions
-      description: Notifications or similar to be run. {{entities}} is replaced with a formatted list of friendly names (with fully unavailable devices grouped), and {{raw_entity_ids}} is replaced with a formatted list of raw entity IDs. {{unformatted_entities}} and {{unformatted_raw_entity_ids}} are also available as unformatted lists for advanced templating.
+      description: Notifications or similar to be run. {{entities}} is replaced with a formatted list of friendly names (with fully unavailable devices grouped if enabled), and {{raw_entity_ids}} is replaced with a formatted list of raw entity IDs. {{unformatted_entities}} and {{unformatted_raw_entity_ids}} are also available as unformatted lists for advanced templating.
       selector:
         action:
 
@@ -91,6 +99,9 @@ variables:
   sunday_enabled: !input 'sunday_enabled'        # Run on Sunday?
 
   current_day: '{{ now().weekday() | int }}'     # Current day of week (0=Monday, 6=Sunday)
+
+  # Grouping configuration
+  group_device_entities: !input 'group_device_entities'
 
   # Entity monitoring configuration
   exclude: !input 'exclude'                      # Exclusion input from blueprint
@@ -171,29 +182,33 @@ variables:
 
   # === UNFORMATTED ENTITIES WITH DEVICE GROUPING ===
   unformatted_entities: >-
-    {% set processed_device_ids = namespace(list=[]) %}
-    {% set grouped_output = namespace(items=[]) %}
+    {% if group_device_entities %}
+      {% set processed_device_ids = namespace(list=[]) %}
+      {% set grouped_output = namespace(items=[]) %}
 
-    {% for entity_id in unformatted_raw_entity_ids %}
-      {% set current_device_id = device_id(entity_id) %}
-      {% if current_device_id %}
-        {% if current_device_id not in processed_device_ids.list %}
-          {% set total_device_entities = device_entities(current_device_id) %}
-          {% set unavailable_device_entities = total_device_entities | select('in', unformatted_raw_entity_ids) | list %}
-          {% if (total_device_entities | length > 0) and (total_device_entities | length == unavailable_device_entities | length) %}
-            {% set resolved_device_name = device_attr(current_device_id, 'name_by_user') | default(device_attr(current_device_id, 'name'), true) | default('Unknown Device', true) %}
-            {% set grouped_output.items = grouped_output.items + ['All entities from ' ~ resolved_device_name] %}
-            {% set processed_device_ids.list = processed_device_ids.list + [current_device_id] %}
-          {% else %}
-            {% set grouped_output.items = grouped_output.items + [states[entity_id].name | default(entity_id)] %}
+      {% for entity_id in unformatted_raw_entity_ids %}
+        {% set current_device_id = device_id(entity_id) %}
+        {% if current_device_id %}
+          {% if current_device_id not in processed_device_ids.list %}
+            {% set total_device_entities = device_entities(current_device_id) %}
+            {% set unavailable_device_entities = total_device_entities | select('in', unformatted_raw_entity_ids) | list %}
+            {% if (total_device_entities | length > 0) and (total_device_entities | length == unavailable_device_entities | length) %}
+              {% set resolved_device_name = device_attr(current_device_id, 'name_by_user') | default(device_attr(current_device_id, 'name'), true) | default('Unknown Device', true) %}
+              {% set grouped_output.items = grouped_output.items + ['All entities from ' ~ resolved_device_name] %}
+              {% set processed_device_ids.list = processed_device_ids.list + [current_device_id] %}
+            {% else %}
+              {% set grouped_output.items = grouped_output.items + [states[entity_id].name | default(entity_id)] %}
+            {% endif %}
           {% endif %}
+        {% else %}
+          {% set grouped_output.items = grouped_output.items + [states[entity_id].name | default(entity_id)] %}
         {% endif %}
-      {% else %}
-        {% set grouped_output.items = grouped_output.items + [states[entity_id].name | default(entity_id)] %}
-      {% endif %}
-    {% endfor %}
+      {% endfor %}
 
-    {{ grouped_output.items }}
+      {{ grouped_output.items }}
+    {% else %}
+      {{ unformatted_raw_entity_ids | map('extract', states, 'name') | list }}
+    {% endif %}
 
   # Format entities for notification template
   entities: >-
@@ -217,13 +232,12 @@ condition:
         {{ 
           (current_day == 0 and monday_enabled) or 
           (current_day == 1 and tuesday_enabled) or 
-          (current_day == 2 and wednesday_enabled) or
+          (current_day == 2 and wednesday_enabled) or 
           (current_day == 3 and thursday_enabled) or 
-          (current_day == 4 and friday_enabled) or
-          (current_day == 5 and saturday_enabled) or
+          (current_day == 4 and friday_enabled) or 
+          (current_day == 5 and saturday_enabled) or 
           (current_day == 6 and sunday_enabled)
         }}
-
 
   # Only proceed if there are actually unavailable entities to report
   - condition: template
