@@ -74,7 +74,7 @@ blueprint:
     # Define what happens when unavailable entities are detected
     actions:
       name: Actions
-      description: Notifications or similar to be run. {{entities}} is replaced with a formated list of the names of unavailable entities. {{unformatted_entities}} is also available as an unformatted list for advanced templating.
+      description: Notifications or similar to be run. {{entities}} is replaced with a formatted list of friendly names (with fully unavailable devices grouped), and {{raw_entity_ids}} is replaced with a formatted list of raw entity IDs. {{unformatted_entities}} and {{unformatted_raw_entity_ids}} are also available as unformatted lists for advanced templating.
       selector:
         action:
 
@@ -98,7 +98,7 @@ variables:
   # === UNAVAILABLE ENTITY DETECTION WITH EXCLUSION LOGIC ===
   # Build a list of unavailable entities, excluding those specified by the user
   # Exclusion supports entities, devices, areas, and labels for maximum flexibility
-  unformatted_entities: >-
+  unformatted_raw_entity_ids: >-
     {% set result = namespace(includedEntities=[], excludedEntities = []) %}
 
     {# === ENTITY EXCLUSION === #}
@@ -162,23 +162,51 @@ variables:
     {# Find all unavailable sensors, excluding those in exclusion list #}
     {% for state in states | selectattr('state', 'eq', 'unavailable') %}
         {% if state.state == 'unavailable' and not state.entity_id in result.excludedEntities and (not device_id(state.entity_id) or not device_attr(device_id(state.entity_id), 'disabled_by')) %}
-          {% set result.includedEntities = result.includedEntities + [state.name] %}
+          {% set result.includedEntities = result.includedEntities + [state.entity_id] %}
         {% endif %}
     {% endfor %}
-    
+
     {# Return the list of entities for checking #}
     {{ result.includedEntities }}
+
+  # === UNFORMATTED ENTITIES WITH DEVICE GROUPING ===
+  unformatted_entities: >-
+    {% set processed_device_ids = namespace(list=[]) %}
+    {% set grouped_output = namespace(items=[]) %}
+
+    {% for entity_id in unformatted_raw_entity_ids %}
+      {% set current_device_id = device_id(entity_id) %}
+      {% if current_device_id %}
+        {% if current_device_id not in processed_device_ids.list %}
+          {% set total_device_entities = device_entities(current_device_id) %}
+          {% set unavailable_device_entities = total_device_entities | select('in', unformatted_raw_entity_ids) | list %}
+          {% if (total_device_entities | length > 0) and (total_device_entities | length == unavailable_device_entities | length) %}
+            {% set resolved_device_name = device_attr(current_device_id, 'name_by_user') | default(device_attr(current_device_id, 'name'), true) | default('Unknown Device', true) %}
+            {% set grouped_output.items = grouped_output.items + ['All entities from ' ~ resolved_device_name] %}
+            {% set processed_device_ids.list = processed_device_ids.list + [current_device_id] %}
+          {% else %}
+            {% set grouped_output.items = grouped_output.items + [states[entity_id].name | default(entity_id)] %}
+          {% endif %}
+        {% endif %}
+      {% else %}
+        {% set grouped_output.items = grouped_output.items + [states[entity_id].name | default(entity_id)] %}
+      {% endif %}
+    {% endfor %}
+
+    {{ grouped_output.items }}
 
   # Format entities for notification template
   entities: >-
     {{"- "}}{{unformatted_entities|join('\n- ')}}
+
+  raw_entity_ids: >-
+    {{'- '}}{{unformatted_raw_entity_ids|join('\n- ')}}
 
 # === AUTOMATION TRIGGERS ===
 # Run at the specified time each day
 trigger:
   - platform: time
     at: !input 'time'
-
 
 # === AUTOMATION CONDITIONS ===
 # Only run if it's a selected weekday and there are unavailable entities
