@@ -232,10 +232,10 @@ condition:
         {{ 
           (current_day == 0 and monday_enabled) or 
           (current_day == 1 and tuesday_enabled) or 
-          (current_day == 2 and wednesday_enabled) or 
+          (current_day == 2 and wednesday_enabled) or
           (current_day == 3 and thursday_enabled) or 
-          (current_day == 4 and friday_enabled) or 
-          (current_day == 5 and saturday_enabled) or 
+          (current_day == 4 and friday_enabled) or
+          (current_day == 5 and saturday_enabled) or
           (current_day == 6 and sunday_enabled)
         }}
 
